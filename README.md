@@ -9,7 +9,9 @@
 [![Qt](https://img.shields.io/badge/Qt-6.7+-green.svg)](https://www.qt.io/)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-lightgrey.svg)](https://www.microsoft.com/windows/)
-[![Users](https://img.shields.io/badge/用户支持-学生+教师-orange.svg)]()
+[![下载](https://img.shields.io/badge/下载-V1.0-blue.svg)](https://github.com/Mengxun326/AUST-WIFI/releases/tag/V1.0)
+[![Star](https://img.shields.io/badge/GitHub-⭐Star-yellow.svg)](https://github.com/Mengxun326/AUST-WIFI)
+[![License](https://img.shields.io/badge/License-Custom-green.svg)](./LICENSE)
 
 ## 📸 项目预览
 
