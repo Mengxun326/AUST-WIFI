@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/">
+        <!-- 主程序图标 (已添加) -->
+        <file>icons/app.ico</file>
+        
+        <!-- 其他状态图标 (可选添加) -->
+        <!-- 取消注释并添加对应图标文件即可使用 -->
+        <!-- <file>icons/connected.ico</file>    网络已连接状态图标 -->
+        <!-- <file>icons/disconnected.ico</file> 网络未连接状态图标 -->
+        <!-- <file>icons/warning.ico</file>      警告状态图标 -->
+    </qresource>
+</RCC>
+ 
