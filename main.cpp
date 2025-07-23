@@ -25,7 +25,11 @@ int main(int argc, char *argv[])
     
     // 如果是首次运行，显示窗口；否则直接隐藏到系统托盘
     QSettings settings("AUST_WIFI", "Config");
-    if (!settings.contains("user")) {
+    bool hasStudentConfig = settings.contains("student/user");
+    bool hasTeacherConfig = settings.contains("teacher/user");
+    bool hasOldConfig = settings.contains("user");
+    
+    if (!hasStudentConfig && !hasTeacherConfig && !hasOldConfig) {
         w.show();
     }
     

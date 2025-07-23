@@ -4,11 +4,11 @@ title AUST WiFi 自动重连工具 - 编译脚本 v1.0
 color 0A
 
 echo ========================================================
-echo      AUST WiFi 自动重连工具 - 编译脚本 v1.0
+echo     AUST WiFi 自动重连工具 - 编译脚本 v1.1
 echo ========================================================
 echo.
 echo 🚀 正在开始编译安徽理工大学校园网自动重连工具...
-echo    基于 Qt6/C++ 开发，支持智能重连和系统托盘功能
+echo    基于 Qt6/C++ 开发，支持学生和教师用户，智能重连和系统托盘功能
 echo.
 
 REM 显示编译环境信息
@@ -129,7 +129,7 @@ if exist curl\include\curl\curl.h (
     echo   - Qt Network 功能完全足够日常使用
     echo   - 如需安装 libcurl，请参考项目文档
 )
-echo.
+    echo.
 
 REM 检查资源文件和图标
 echo 🎨 检查资源文件和图标...
@@ -146,7 +146,7 @@ if exist resources.qrc (
     )
 ) else (
     echo ⚠️ resources.qrc - 资源文件缺失，将使用默认图标
-)
+) 
 
 REM 检查本地图标文件
 if exist icons\app.ico (
@@ -174,7 +174,7 @@ if exist icons\disconnected.ico (
     echo ⚠️ disconnected.ico - 断开图标缺失
 )
 
-echo.
+    echo.
 echo 💡 图标状态: 检测到 %icon_count%/3 个图标文件
 if %icon_count% lss 3 (
     echo    程序仍可正常运行，缺失的图标将使用系统默认样式
@@ -332,15 +332,16 @@ if %errorlevel% equ 0 (
     
     pause
     exit /b 1
-)
+) 
 
 echo.
 echo ========================================================
 echo 🙏 感谢使用 AUST WiFi 自动重连工具！
 echo    让校园网连接更智能、更便捷！
+echo    现在支持全体师生！
 echo.
 echo 开发者: 信息安全23-1 王智杰
-echo 版本: v1.0.0
+echo 版本: v1.1.0 (新增教师用户支持)
 echo ========================================================
 echo.
 pause
