@@ -9,6 +9,8 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QStyle>
+#include <QTimer>
+#include <QDateTime>
 
 // MainWindow 实现
 MainWindow::MainWindow(QWidget *parent)
@@ -21,12 +23,15 @@ MainWindow::MainWindow(QWidget *parent)
     , m_isFirstRun(false)
     , m_backgroundMode(false)
     , m_isConfigDialogOpen(false)
+    , m_isAutoReconnectActive(false)
+    , m_wifiInfoTimer(nullptr)
+    , m_moveEndTimer(nullptr)
 {
     ui->setupUi(this);
     setWindowTitle("AUST WiFi 自动重连工具");
     
-    // 设置状态栏显示个人信息
-    statusBar()->showMessage("信息安全23-1 王智杰");
+    // 设置状态栏显示个人信息（Windows 11风格）
+    statusBar()->showMessage("信息安全23-1 王智杰 | AUST WiFi 自动重连工具 v3.0");
     
     // 检查是否首次运行
     checkFirstRun();
@@ -47,8 +52,38 @@ MainWindow::MainWindow(QWidget *parent)
     
     // 连接UI按钮信号
     connect(ui->configButton, &QPushButton::clicked, this, &MainWindow::onShowConfig);
-    connect(ui->startButton, &QPushButton::clicked, this, &MainWindow::onStartAutoReconnect);
-    connect(ui->stopButton, &QPushButton::clicked, this, &MainWindow::onStopAutoReconnect);
+    connect(ui->toggleButton, &QPushButton::clicked, this, &MainWindow::onToggleAutoReconnect);
+    
+    // 初始化切换按钮状态
+    updateToggleButton();
+    
+    // 初始化状态显示
+    ui->statusIndicator->setStyleSheet("background-color: #FFB900;");
+    ui->statusIndicator->setProperty("class", "connecting");
+    ui->statusValueLabel->setText("正在检测...");
+    ui->statusDescriptionLabel->setText("系统正在检测您的网络连接状态");
+    
+    // 初始化WiFi信息显示
+    updateWifiInfo();
+    
+    // 创建定时器定期更新WiFi信息（每5秒更新一次）
+    m_wifiInfoTimer = new QTimer(this);
+    connect(m_wifiInfoTimer, &QTimer::timeout, this, &MainWindow::updateWifiInfo);
+    m_wifiInfoTimer->start(5000);
+    
+    // 连接WiFi SSID更新信号，当SSID更新时自动刷新UI
+    connect(m_wifiManager, &WiFiManager::wifiSSIDUpdated, this, &MainWindow::updateWifiInfo);
+    
+    // 创建窗口移动结束检测定时器（用于在移动结束后恢复更新）
+    m_moveEndTimer = new QTimer(this);
+    m_moveEndTimer->setSingleShot(true);
+    m_moveEndTimer->setInterval(300);  // 移动结束后300ms再恢复更新
+    connect(m_moveEndTimer, &QTimer::timeout, [this]() {
+        if (m_wifiInfoTimer && !m_wifiInfoTimer->isActive()) {
+            m_wifiInfoTimer->start(5000);
+            updateWifiInfo();  // 立即更新一次
+        }
+    });
     
     // 如果是首次运行，显示配置对话框
     if (m_isFirstRun) {
@@ -65,6 +100,8 @@ MainWindow::MainWindow(QWidget *parent)
         // 延迟启动自动重连，避免启动时崩溃
         QTimer::singleShot(2000, [this]() {
             m_wifiManager->startAutoReconnect();
+            m_isAutoReconnectActive = true;
+            updateToggleButton();
         });
     }
     
@@ -129,6 +166,22 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 }
 
+void MainWindow::moveEvent(QMoveEvent *event)
+{
+    QMainWindow::moveEvent(event);
+    
+    // 窗口移动时暂停WiFi信息更新，避免卡顿
+    if (m_wifiInfoTimer && m_wifiInfoTimer->isActive()) {
+        m_wifiInfoTimer->stop();
+    }
+    
+    // 重置移动结束检测定时器
+    if (m_moveEndTimer) {
+        m_moveEndTimer->stop();
+        m_moveEndTimer->start();
+    }
+}
+
 void MainWindow::checkFirstRun()
 {
     QSettings settings("AUST_WIFI", "Config");
@@ -187,9 +240,9 @@ void MainWindow::createTrayIcon()
     connect(m_showConfigAction, &QAction::triggered, 
             this, &MainWindow::onShowConfig);
     connect(m_startAction, &QAction::triggered, 
-            this, &MainWindow::onStartAutoReconnect);
+            this, &MainWindow::onToggleAutoReconnect);
     connect(m_stopAction, &QAction::triggered, 
-            this, &MainWindow::onStopAutoReconnect);
+            this, &MainWindow::onToggleAutoReconnect);
     connect(m_quitAction, &QAction::triggered, 
             this, &MainWindow::onQuit);
     
@@ -206,6 +259,8 @@ void MainWindow::startBackgroundMode()
     m_backgroundMode = true;
     hide();
     m_wifiManager->startAutoReconnect();
+    m_isAutoReconnectActive = true;
+    updateToggleButton();
 }
 
 void MainWindow::setupAutoStart()
@@ -280,18 +335,39 @@ void MainWindow::onShowConfig()
     qDebug() << "=== 配置界面操作完成 ===";
 }
 
-void MainWindow::onStartAutoReconnect()
+void MainWindow::onToggleAutoReconnect()
 {
-    m_wifiManager->startAutoReconnect();
-    m_trayIcon->showMessage("AUST WiFi", "自动重连已启动", 
-                           QSystemTrayIcon::Information, 2000);
+    if (m_isAutoReconnectActive) {
+        // 当前是激活状态，停止自动重连
+        m_wifiManager->stopAutoReconnect();
+        m_isAutoReconnectActive = false;
+        m_trayIcon->showMessage("AUST WiFi", "自动重连已停止", 
+                               QSystemTrayIcon::Information, 2000);
+    } else {
+        // 当前是停止状态，启动自动重连
+        m_wifiManager->startAutoReconnect();
+        m_isAutoReconnectActive = true;
+        m_trayIcon->showMessage("AUST WiFi", "自动重连已启动", 
+                               QSystemTrayIcon::Information, 2000);
+    }
+    updateToggleButton();
 }
 
-void MainWindow::onStopAutoReconnect()
+void MainWindow::updateToggleButton()
 {
-    m_wifiManager->stopAutoReconnect();
-    m_trayIcon->showMessage("AUST WiFi", "自动重连已停止", 
-                           QSystemTrayIcon::Information, 2000);
+    if (m_isAutoReconnectActive) {
+        // 激活状态：显示"停止自动重连"，使用停止样式
+        ui->toggleButton->setText("停止自动重连");
+        ui->toggleButton->setProperty("class", "stopped");
+        ui->toggleButton->style()->unpolish(ui->toggleButton);
+        ui->toggleButton->style()->polish(ui->toggleButton);
+    } else {
+        // 停止状态：显示"开始自动重连"，使用开始样式
+        ui->toggleButton->setText("开始自动重连");
+        ui->toggleButton->setProperty("class", "");
+        ui->toggleButton->style()->unpolish(ui->toggleButton);
+        ui->toggleButton->style()->polish(ui->toggleButton);
+    }
 }
 
 void MainWindow::onQuit()
@@ -307,6 +383,16 @@ void MainWindow::onConnectionStatusChanged(bool connected)
     if (connected) {
         m_trayIcon->setToolTip("AUST WiFi - 已连接");
         
+        // 更新状态指示器
+        ui->statusIndicator->setStyleSheet("background-color: #107C10;");
+        ui->statusIndicator->setProperty("class", "connected");
+        ui->statusIndicator->style()->unpolish(ui->statusIndicator);
+        ui->statusIndicator->style()->polish(ui->statusIndicator);
+        
+        // 更新状态文本
+        ui->statusValueLabel->setText("已连接");
+        ui->statusDescriptionLabel->setText("网络连接正常，可以正常使用");
+        
         // 优先使用资源文件图标，然后本地文件，最后回退到系统图标
         if (QFile::exists(":/icons/connected.ico")) {
             statusIcon = QIcon(":/icons/connected.ico");
@@ -315,11 +401,18 @@ void MainWindow::onConnectionStatusChanged(bool connected)
         } else {
             statusIcon = QApplication::style()->standardIcon(QStyle::SP_DialogApplyButton);
         }
-        
-        ui->statusLabel->setText("状态: 网络连接正常");
-        ui->statusLabel->setStyleSheet("color: #107c10; font-weight: bold;");
     } else {
         m_trayIcon->setToolTip("AUST WiFi - 未连接");
+        
+        // 更新状态指示器
+        ui->statusIndicator->setStyleSheet("background-color: #D13438;");
+        ui->statusIndicator->setProperty("class", "disconnected");
+        ui->statusIndicator->style()->unpolish(ui->statusIndicator);
+        ui->statusIndicator->style()->polish(ui->statusIndicator);
+        
+        // 更新状态文本
+        ui->statusValueLabel->setText("未连接");
+        ui->statusDescriptionLabel->setText("网络连接异常，正在尝试重连...");
         
         // 优先使用资源文件图标，然后本地文件，最后回退到系统图标
         if (QFile::exists(":/icons/disconnected.ico")) {
@@ -333,17 +426,27 @@ void MainWindow::onConnectionStatusChanged(bool connected)
         } else {
             statusIcon = QApplication::style()->standardIcon(QStyle::SP_MessageBoxWarning);
         }
-        
-        ui->statusLabel->setText("状态: 网络异常，正在重连...");
-        ui->statusLabel->setStyleSheet("color: #d13438; font-weight: bold;");
     }
     
     m_trayIcon->setIcon(statusIcon);
+    
+    // 更新WiFi信息
+    updateWifiInfo();
 }
 
 void MainWindow::onLoginResult(bool success, const QString &message)
 {
     if (success) {
+        // 记录登录成功时间（使用ISO格式确保兼容性）
+        QSettings settings("AUST_WIFI", "Config");
+        QDateTime currentTime = QDateTime::currentDateTime();
+        settings.setValue("lastLoginTime", currentTime);
+        settings.sync();
+        qDebug() << "保存最后登录时间:" << currentTime.toString(Qt::ISODate);
+        
+        // 更新WiFi信息显示
+        updateWifiInfo();
+        
         m_trayIcon->showMessage("AUST WiFi", "登录成功", 
                                QSystemTrayIcon::Information, 2000);
         qDebug() << "登录成功:" << message;
@@ -396,5 +499,71 @@ void MainWindow::showUserFriendlyError(const QString &title, const QString &mess
     } else {
         // 普通错误提示
         QMessageBox::warning(this, title, message);
+    }
+}
+
+void MainWindow::updateWifiInfo()
+{
+    if (!m_wifiManager) {
+        return;
+    }
+    
+    // 获取当前WiFi SSID（从缓存，非阻塞）
+    QString ssid = m_wifiManager->getCurrentWifiSSID();
+    // 异步更新SSID（不阻塞UI）
+    m_wifiManager->updateWifiSSIDAsync();
+    if (ssid.isEmpty()) {
+        ui->wifiNameValue->setText("未检测到");
+    } else {
+        ui->wifiNameValue->setText(ssid);
+    }
+    
+    // 获取用户类型
+    QString userType = m_wifiManager->determineUserTypeBySSID(ssid);
+    if (userType == "student") {
+        ui->userTypeValue->setText("学生");
+    } else if (userType == "teacher") {
+        ui->userTypeValue->setText("教师");
+    } else {
+        ui->userTypeValue->setText("未检测到");
+    }
+    
+    // 更新最后登录时间（从设置中读取）
+    QSettings settings("AUST_WIFI", "Config");
+    QVariant lastLoginVariant = settings.value("lastLoginTime");
+    QDateTime lastLogin;
+    
+    // 尝试多种方式读取时间
+    if (lastLoginVariant.isValid()) {
+        if (lastLoginVariant.type() == QVariant::DateTime) {
+            lastLogin = lastLoginVariant.toDateTime();
+        } else if (lastLoginVariant.type() == QVariant::String) {
+            // 如果是字符串格式，尝试解析
+            QString timeStr = lastLoginVariant.toString();
+            lastLogin = QDateTime::fromString(timeStr, Qt::ISODate);
+            if (!lastLogin.isValid()) {
+                lastLogin = QDateTime::fromString(timeStr, "yyyy-MM-dd hh:mm:ss");
+            }
+        }
+    }
+    
+    if (lastLogin.isValid() && lastLogin <= QDateTime::currentDateTime()) {
+        QDateTime now = QDateTime::currentDateTime();
+        qint64 seconds = lastLogin.secsTo(now);
+        
+        if (seconds < 0) {
+            // 时间在未来，可能是时区问题，使用当前时间
+            ui->lastLoginValue->setText("刚刚");
+        } else if (seconds < 60) {
+            ui->lastLoginValue->setText(QString("刚刚（%1秒前）").arg(seconds));
+        } else if (seconds < 3600) {
+            ui->lastLoginValue->setText(QString("%1分钟前").arg(seconds / 60));
+        } else if (seconds < 86400) {
+            ui->lastLoginValue->setText(QString("%1小时前").arg(seconds / 3600));
+        } else {
+            ui->lastLoginValue->setText(lastLogin.toString("yyyy-MM-dd hh:mm"));
+        }
+    } else {
+        ui->lastLoginValue->setText("从未登录");
     }
 }

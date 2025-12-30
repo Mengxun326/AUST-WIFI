@@ -6,222 +6,568 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>420</width>
-    <height>340</height>
+    <width>720</width>
+    <height>580</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>420</width>
-    <height>340</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>420</width>
-    <height>340</height>
+    <width>680</width>
+    <height>520</height>
    </size>
   </property>
   <property name="windowTitle">
    <string>AUST WiFi 自动重连工具</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QMainWindow {
-    background-color: #f5f5f5;
+   <string notr="true">/* Windows 11 Fluent Design Style */
+QMainWindow {
+    background-color: #F3F3F3;
+    font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 QWidget#centralwidget {
     background: transparent;
+}
+
+/* 卡片样式 */
+QFrame#statusCard, QFrame#infoCard, QFrame#actionCard {
+    background-color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 0px;
+}
+
+/* 标题样式 */
+QLabel#titleLabel {
+    font-size: 28px;
+    font-weight: 600;
+    color: #202020;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+QLabel#subtitleLabel {
+    font-size: 14px;
+    font-weight: 400;
+    color: #606060;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+/* 状态标签 */
+QLabel#statusTitleLabel {
+    font-size: 12px;
+    font-weight: 600;
+    color: #606060;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+QLabel#statusValueLabel {
+    font-size: 16px;
+    font-weight: 500;
+    color: #202020;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+QLabel#statusDescriptionLabel {
+    font-size: 13px;
+    font-weight: 400;
+    color: #606060;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+/* WiFi信息标签 */
+QLabel#wifiNameLabel, QLabel#userTypeLabel, QLabel#lastLoginLabel {
+    font-size: 13px;
+    font-weight: 400;
+    color: #606060;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+QLabel#wifiNameValue, QLabel#userTypeValue, QLabel#lastLoginValue {
+    font-size: 14px;
+    font-weight: 500;
+    color: #202020;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+/* 按钮样式 - Windows 11风格 */
+QPushButton#configButton {
+    background-color: #0078D4;
+    border: none;
+    border-radius: 4px;
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 24px;
+    min-height: 36px;
+}
+
+QPushButton#configButton:hover {
+    background-color: #106EBE;
+}
+
+QPushButton#configButton:pressed {
+    background-color: #005A9E;
+}
+
+QPushButton#toggleButton {
+    background-color: #107C10;
+    border: none;
+    border-radius: 4px;
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 24px;
+    min-height: 36px;
+}
+
+QPushButton#toggleButton:hover {
+    background-color: #0E6E0E;
+}
+
+QPushButton#toggleButton:pressed {
+    background-color: #0C5D0C;
+}
+
+QPushButton#toggleButton.stopped {
+    background-color: transparent;
+    border: 1px solid #E1E1E1;
+    color: #202020;
+}
+
+QPushButton#toggleButton.stopped:hover {
+    background-color: #F9F9F9;
+    border-color: #C1C1C1;
+}
+
+QPushButton#toggleButton.stopped:pressed {
+    background-color: #F3F3F3;
+}
+
+/* 状态指示器 */
+QLabel#statusIndicator {
+    min-width: 12px;
+    max-width: 12px;
+    min-height: 12px;
+    max-height: 12px;
+    border-radius: 6px;
+    background-color: #107C10;
+}
+
+QLabel#statusIndicator.disconnected {
+    background-color: #D13438;
+}
+
+QLabel#statusIndicator.connecting {
+    background-color: #FFB900;
+}
+
+/* 分隔线 */
+QFrame#divider {
+    background-color: #E1E1E1;
+    max-height: 1px;
+    min-height: 1px;
+    border: none;
+}
+
+/* 状态栏 */
+QStatusBar {
+    background-color: #FAFAFA;
+    border-top: 1px solid #E1E1E1;
+    color: #606060;
+    font-size: 12px;
+    padding: 4px 8px;
 }</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
+   <layout class="QVBoxLayout" name="mainLayout">
     <property name="spacing">
-     <number>15</number>
+     <number>0</number>
     </property>
     <property name="leftMargin">
-     <number>20</number>
+     <number>24</number>
     </property>
     <property name="topMargin">
-     <number>15</number>
+     <number>24</number>
     </property>
     <property name="rightMargin">
-     <number>20</number>
+     <number>24</number>
     </property>
     <property name="bottomMargin">
-     <number>15</number>
+     <number>24</number>
     </property>
     <item>
-     <widget class="QLabel" name="titleLabel">
-      <property name="styleSheet">
-       <string notr="true">QLabel {
-    font-size: 16px;
-    font-weight: bold;
-    color: #333;
-    padding: 10px;
-    background-color: white;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-}</string>
-      </property>
-      <property name="text">
-       <string>AUST WiFi 管理器</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignmentFlag::AlignCenter</set>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLabel" name="statusLabel">
-      <property name="styleSheet">
-       <string notr="true">QLabel {
-    font-size: 13px;
-    color: #666;
-    padding: 8px;
-    background-color: white;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}</string>
-      </property>
-      <property name="text">
-       <string>状态: 正在检测网络连接...</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignmentFlag::AlignCenter</set>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLabel" name="infoLabel">
-      <property name="styleSheet">
-       <string notr="true">QLabel {
-    font-size: 11px;
-    color: #888;
-    padding: 6px;
-}</string>
-      </property>
-      <property name="text">
-       <string>程序在后台运行，双击托盘图标显示/隐藏窗口</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignmentFlag::AlignCenter</set>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="configButton">
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>35</height>
-       </size>
-      </property>
-      <property name="styleSheet">
-       <string notr="true">QPushButton {
-    background-color: #0078d4;
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 13px;
-    font-weight: bold;
-    padding: 8px;
-}
-
-QPushButton:hover {
-    background-color: #106ebe;
-}
-
-QPushButton:pressed {
-    background-color: #005a9e;
-}</string>
-      </property>
-      <property name="text">
-       <string>配置设置</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="controlLayout">
+     <layout class="QVBoxLayout" name="headerLayout">
       <property name="spacing">
-       <number>10</number>
+       <number>8</number>
       </property>
       <item>
-       <widget class="QPushButton" name="startButton">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>32</height>
-         </size>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QPushButton {
-    background-color: #107c10;
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 12px;
-    padding: 6px;
-}
-
-QPushButton:hover {
-    background-color: #0e6e0e;
-}
-
-QPushButton:pressed {
-    background-color: #0c5d0c;
-}</string>
-        </property>
+       <widget class="QLabel" name="titleLabel">
         <property name="text">
-         <string>开始</string>
+         <string>AUST WiFi 自动重连工具</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="stopButton">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>32</height>
-         </size>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QPushButton {
-    background-color: #d13438;
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 12px;
-    padding: 6px;
-}
-
-QPushButton:hover {
-    background-color: #b52d31;
-}
-
-QPushButton:pressed {
-    background-color: #9a272a;
-}</string>
-        </property>
+       <widget class="QLabel" name="subtitleLabel">
         <property name="text">
-         <string>停止</string>
+         <string>智能管理您的校园网连接，支持学生和教师双配置</string>
         </property>
        </widget>
       </item>
      </layout>
     </item>
+    <item>
+     <spacer name="headerSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint">
+       <size>
+        <width>20</width>
+        <height>24</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item>
+     <widget class="QFrame" name="statusCard">
+      <property name="frameShape">
+       <enum>QFrame::NoFrame</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QVBoxLayout" name="statusCardLayout">
+       <property name="spacing">
+        <number>16</number>
+       </property>
+       <property name="leftMargin">
+        <number>20</number>
+       </property>
+       <property name="topMargin">
+        <number>20</number>
+       </property>
+       <property name="rightMargin">
+        <number>20</number>
+       </property>
+       <property name="bottomMargin">
+        <number>20</number>
+       </property>
+       <item>
+        <layout class="QHBoxLayout" name="statusHeaderLayout">
+         <property name="spacing">
+          <number>12</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="statusIndicator">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="statusTextLayout">
+           <property name="spacing">
+            <number>4</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="statusTitleLabel">
+             <property name="text">
+              <string>连接状态</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="statusValueLabel">
+             <property name="text">
+              <string>正在检测网络连接...</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="statusDescriptionLabel">
+             <property name="text">
+              <string>系统正在检测您的网络连接状态</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <spacer name="statusHeaderSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <spacer name="cardSpacer1">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint">
+       <size>
+        <width>20</width>
+        <height>16</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item>
+     <widget class="QFrame" name="infoCard">
+      <property name="frameShape">
+       <enum>QFrame::NoFrame</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QVBoxLayout" name="infoCardLayout">
+       <property name="spacing">
+        <number>16</number>
+       </property>
+       <property name="leftMargin">
+        <number>20</number>
+       </property>
+       <property name="topMargin">
+        <number>20</number>
+       </property>
+       <property name="rightMargin">
+        <number>20</number>
+       </property>
+       <property name="bottomMargin">
+        <number>20</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="infoTitleLabel">
+         <property name="text">
+          <string>网络信息</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">font-size: 12px; font-weight: 600; color: #606060; text-transform: uppercase; letter-spacing: 0.5px;</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="divider">
+         <property name="frameShape">
+          <enum>QFrame::HLine</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QGridLayout" name="infoGridLayout">
+         <property name="spacing">
+          <number>16</number>
+         </property>
+         <item row="0" column="0">
+          <layout class="QVBoxLayout" name="wifiNameLayout">
+           <property name="spacing">
+            <number>4</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="wifiNameLabel">
+             <property name="text">
+              <string>WiFi 网络</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="wifiNameValue">
+             <property name="text">
+              <string>未检测到</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="0" column="1">
+          <layout class="QVBoxLayout" name="userTypeLayout">
+           <property name="spacing">
+            <number>4</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="userTypeLabel">
+             <property name="text">
+              <string>用户类型</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="userTypeValue">
+             <property name="text">
+              <string>未检测到</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="0" column="2">
+          <layout class="QVBoxLayout" name="lastLoginLayout">
+           <property name="spacing">
+            <number>4</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="lastLoginLabel">
+             <property name="text">
+              <string>最后登录</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lastLoginValue">
+             <property name="text">
+              <string>从未登录</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <spacer name="cardSpacer2">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint">
+       <size>
+        <width>20</width>
+        <height>16</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item>
+     <widget class="QFrame" name="actionCard">
+      <property name="frameShape">
+       <enum>QFrame::NoFrame</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QVBoxLayout" name="actionCardLayout">
+       <property name="spacing">
+        <number>16</number>
+       </property>
+       <property name="leftMargin">
+        <number>20</number>
+       </property>
+       <property name="topMargin">
+        <number>20</number>
+       </property>
+       <property name="rightMargin">
+        <number>20</number>
+       </property>
+       <property name="bottomMargin">
+        <number>20</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="actionTitleLabel">
+         <property name="text">
+          <string>操作</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">font-size: 12px; font-weight: 600; color: #606060; text-transform: uppercase; letter-spacing: 0.5px;</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="divider2">
+         <property name="frameShape">
+          <enum>QFrame::HLine</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="actionButtonLayout">
+         <property name="spacing">
+          <number>12</number>
+         </property>
+         <item>
+          <widget class="QPushButton" name="configButton">
+           <property name="text">
+            <string>配置设置</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="toggleButton">
+           <property name="text">
+            <string>开始自动重连</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="actionButtonSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <spacer name="bottomSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint">
+       <size>
+        <width>20</width>
+        <height>40</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
    </layout>
   </widget>
-  <widget class="QStatusBar" name="statusbar">
-   <property name="styleSheet">
-    <string notr="true">QStatusBar {
-    background-color: #f0f0f0;
-    border-top: 1px solid #ddd;
-    color: #666;
-    font-size: 10px;
-}</string>
-   </property>
-  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <resources/>
  <connections/>

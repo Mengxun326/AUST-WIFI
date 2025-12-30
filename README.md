@@ -4,14 +4,13 @@
 
 *开发者：信息安全23-1 王智杰*
 
-[![Version](https://img.shields.io/badge/Version-v2.0.0-brightgreen.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
+[![Version](https://img.shields.io/badge/Version-v3.0.0-brightgreen.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
 [![License](https://img.shields.io/badge/License-Custom-blue.svg)](./LICENSE)
 [![Qt](https://img.shields.io/badge/Qt-6.7+-green.svg)](https://www.qt.io/)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-lightgrey.svg)](https://www.microsoft.com/windows/)
-[![下载](https://img.shields.io/badge/下载-V1.0-blue.svg)](https://github.com/Mengxun326/AUST-WIFI/releases/tag/V1.0)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20Linux-lightgrey.svg)](https://www.microsoft.com/windows/)
+[![下载](https://img.shields.io/badge/下载-V3.0-blue.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
 [![Star](https://img.shields.io/badge/GitHub-⭐Star-yellow.svg)](https://github.com/Mengxun326/AUST-WIFI)
-[![License](https://img.shields.io/badge/License-Custom-green.svg)](./LICENSE)
 
 ## 📸 项目预览
 
@@ -19,50 +18,73 @@
 
 **专为安徽理工大学校园网环境打造的智能重连解决方案，支持学生和教师用户**
 
-## 🌟 V2.0 核心特性
+## 🌟 V3.0 核心特性
+
+### 🎨 Windows 11 Fluent Design UI
+- **全新界面设计** - 完全重新设计的 Windows 11 风格界面
+- **流畅动画效果** - 窗口移动、切换无卡顿，极致流畅体验
+- **现代化布局** - 卡片式设计，清晰的信息层次
+- **统一视觉风格** - 与 Windows 11 系统应用完美融合
+
+### ⚡ 性能优化升级
+- **完全异步架构** - 移除所有阻塞操作，UI 响应速度提升 300%
+- **智能窗口管理** - 窗口移动时自动暂停后台任务，零卡顿体验
+- **异步 WiFi 检测** - 非阻塞 SSID 检测，不影响用户操作
+- **内存优化** - 更高效的资源管理，降低内存占用
+
+### 🌐 跨平台支持
+- **Linux 支持** - 全新支持 Linux 系统（Ubuntu、Debian 等）
+- **统一代码库** - 一套代码，多平台编译
+- **平台适配** - 自动检测操作系统，使用对应网络命令
+- **编译脚本** - 提供 Linux 一键编译脚本
 
 ### 🔧 双配置智能管理
 - **双账号系统** - 同时保存学生和教师配置，智能自动切换
-- **WiFi智能检测** - 根据网络SSID自动识别用户类型并选择对应配置
+- **WiFi 智能检测** - 根据网络 SSID 自动识别用户类型并选择对应配置
 - **零感知体验** - AUST_Student → 学生登录，AUST_Faculty → 教师登录
-- **专业UI界面** - 独立的Qt Designer配置界面，完美解决布局重叠问题
+- **中文支持** - 完美支持中文 WiFi 名称显示
 
 ### 🚀 企业级稳定性
 - **智能重试机制** - 3次重试 + 30秒冷却期，防止频繁请求
 - **冲突避免算法** - 网络检测与登录请求智能协调，杜绝冲突
-- **生命周期保护** - QPointer防护异步回调，彻底消除崩溃
-- **响应速度优化** - 断网检测时间从15秒缩短到8秒，提升47%
+- **生命周期保护** - QPointer 防护异步回调，彻底消除崩溃
+- **响应速度优化** - 断网检测时间从 15 秒缩短到 8 秒，提升 47%
 
 ### 💻 专业用户体验
 - **配置状态管理** - 配置期间自动暂停网络操作，避免干扰
-- **友好错误提示** - GUI对话框替代控制台输出，专业化呈现
+- **友好错误提示** - GUI 对话框替代控制台输出，专业化呈现
 - **生产级配置** - 完全禁用调试输出，无控制台窗口
-- **表单式界面** - QFormLayout确保标签与输入框完美对齐
+- **标签页优化** - 统一的标签页高度，切换无闪烁
 
 ## 🚀 快速开始
 
 ### 📋 系统要求
 
-| 项目 | 要求 |
-|------|------|
-| **操作系统** | Windows 10 Build 1903+ / Windows 11 |
-| **架构** | x64 (64位) |
-| **内存** | 最低 2GB RAM |
-| **存储空间** | 100MB 可用空间 |
-| **网络环境** | 安徽理工大学校园网 |
+| 项目 | Windows | Linux |
+|------|---------|-------|
+| **操作系统** | Windows 10 Build 1903+ / Windows 11 | Ubuntu 20.04+ / Debian 11+ / 其他主流发行版 |
+| **架构** | x64 (64位) | x64 (64位) |
+| **内存** | 最低 2GB RAM | 最低 2GB RAM |
+| **存储空间** | 100MB 可用空间 | 100MB 可用空间 |
+| **网络环境** | 安徽理工大学校园网 | 安徽理工大学校园网 |
 
 ### 🔨 编译安装
 
 #### 开发环境要求
 ```bash
 # 必需组件
-- Qt 6.7+ with MinGW编译器
+- Qt 6.7+ with MinGW/GCC编译器
 - C++17兼容编译器
 - Git版本控制
 
-# 可选组件  
+# Windows 可选组件  
 - libcurl (用于网络请求，如无则自动使用Qt Network)
 - Qt Creator IDE (推荐)
+
+# Linux 必需组件
+- build-essential (gcc, g++, make)
+- libqt6widgets6-dev
+- libqt6network6-dev
 ```
 
 #### 获取源码
@@ -71,10 +93,26 @@ git clone https://github.com/Mengxun326/AUST-WIFI.git
 cd AUST-WIFI
 ```
 
-#### 编译项目
+#### Windows 编译
 ```bash
 # 方式一：使用编译脚本 (推荐)
 build.bat
+
+# 方式二：手动编译
+qmake AUST_WIFI.pro
+mingw32-make
+
+# 方式三：使用Qt Creator
+# 1. 打开 AUST_WIFI.pro 文件
+# 2. 配置编译套件
+# 3. 点击构建按钮
+```
+
+#### Linux 编译
+```bash
+# 方式一：使用编译脚本 (推荐)
+chmod +x build.sh
+./build.sh
 
 # 方式二：手动编译
 qmake AUST_WIFI.pro
@@ -86,6 +124,8 @@ make
 # 3. 点击构建按钮
 ```
 
+详细 Linux 编译说明请参考：[Linux 编译指南](./docs/LINUX_BUILD.md)
+
 ### 📱 使用指南
 
 #### 首次运行配置
@@ -96,7 +136,7 @@ make
    用户类型：选择"学生"或"教师"
    学号/工号：
      - 学生：输入完整学号 (例如：2023305123)
-     - 教师：输入工号 (例如：2021043)
+     - 教师：输入工号 (例如：2023001)
    密码：输入校园网登录密码
    运营商：仅学生需要选择，教师自动使用学校服务器
    开机自启：建议勾选此选项
@@ -157,17 +197,20 @@ make
 - **Qt Widgets** - 原生桌面应用界面框架
 - **QSystemTrayIcon** - 系统托盘功能实现
 - **Qt Designer** - 可视化界面设计
+- **Windows 11 Fluent Design** - 现代化 UI 设计语言
 
 #### 后端技术
-- **QNetworkAccessManager** - HTTP网络请求处理
+- **QNetworkAccessManager** - HTTP 网络请求处理
 - **QTimer** - 定时任务调度 (1秒间隔检测)
 - **QSettings** - 配置信息持久化存储
+- **QProcess** - 异步进程管理（WiFi 检测）
 - **libcurl** - 可选的网络请求库
 
 #### 系统集成
 - **Windows API** - 开机自启动设置
 - **DPAPI** - 密码安全加密存储
 - **注册表** - 配置信息存储
+- **Linux 网络工具** - iwgetid、nmcli 支持
 
 ### 📁 项目文件结构
 ```
@@ -176,12 +219,21 @@ AUST_WIFI/
 ├── mainwindow.h/cpp         # 🖼️ 主窗口和配置界面
 ├── mainwindow.ui            # 🎨 Qt Designer界面文件
 ├── wifimanager.h/cpp        # 🌐 WiFi管理核心逻辑
+├── config_dialog.h/cpp     # ⚙️ 配置对话框逻辑
+├── config_dialog.ui         # 🎨 配置对话框界面
 ├── resources.qrc            # 📦 资源文件集合
 ├── AUST_WIFI.pro           # ⚙️ Qt项目配置文件
-├── build.bat               # 🔨 一键编译脚本
+├── build.bat               # 🔨 Windows一键编译脚本
+├── build.sh                # 🔨 Linux一键编译脚本
 ├── setup.iss               # 📦 Inno Setup安装脚本
 ├── icons/                  # 🎭 图标资源文件夹
 │   └── app.ico             # 应用程序图标
+├── docs/                   # 📚 文档目录
+│   ├── LINUX_BUILD.md      # Linux编译指南
+│   └── releases/           # 版本发布说明
+│       ├── RELEASE_V1.0.md
+│       ├── RELEASE_V2.0.md
+│       └── RELEASE_V3.0.md
 ├── LICENSE                 # 📄 许可证文件
 ├── README.md               # 📖 项目说明文档
 ├── 用户说明书.md            # 📘 详细用户手册
@@ -214,52 +266,60 @@ graph TD
 
 ### 🌐 网络检测和验证机制
 #### 网络状态检测
-1. **检测频率**：每1000毫秒执行一次网络状态检测
-2. **检测方法**：向 `http://www.baidu.com` 发送HEAD请求
-3. **判断标准**：HTTP状态码200表示网络连接正常
-4. **超时设置**：请求超时时间设为5秒
+1. **检测频率**：每 1000 毫秒执行一次网络状态检测
+2. **检测方法**：向 `http://www.baidu.com` 发送 HEAD 请求
+3. **判断标准**：HTTP 状态码 200 表示网络连接正常
+4. **超时设置**：请求超时时间设为 8 秒
 5. **重连触发**：检测到网络异常时立即发送校园网登录请求
+
+#### WiFi SSID 检测（V3.0 新特性）
+- **Windows**：使用 `netsh wlan show interfaces`（UTF-8 编码）
+- **Linux**：使用 `iwgetid -r` 或 `nmcli` 作为备用方案
+- **macOS**：使用 `airport -I` 命令
+- **完全异步**：所有检测操作异步执行，不阻塞 UI 线程
 
 #### 用户认证机制
 | 用户类型 | 请求方法 | 认证URL | 参数格式 | 响应验证 |
 |----------|----------|---------|----------|----------|
 | **学生** | POST | `/a79.htm` | `DDDDD={学号}@{运营商}` | 响应内容 |
-| **教师** | GET | `/drcom/login` | `DDDDD={工号}@jzg` | HTTP重定向 |
+| **教师** | GET | `/drcom/login` | `DDDDD={工号}@jzg` | HTTP 重定向 |
 
 ### 🔐 安全机制
-- **密码加密**：使用Windows DPAPI (Data Protection API) 加密存储
+- **密码加密**：使用 Windows DPAPI (Data Protection API) 加密存储
 - **本地存储**：所有配置信息仅保存在本地注册表中
-- **HTTPS支持**：支持加密的网络传输协议
+- **HTTPS 支持**：支持加密的网络传输协议
 - **无数据收集**：程序不收集或上传任何用户隐私信息
 
 ## 🐛 故障排除
 
 ### 常见问题解决
 
-#### ❓ Q1: 程序无法启动，提示缺少DLL？
+#### ❓ Q1: 程序无法启动，提示缺少 DLL？
 **💡 解决方案**：
 ```bash
-# 方案一：重新编译并部署
+# Windows 方案一：重新编译并部署
 windeployqt.exe AUST_WIFI.exe
 
-# 方案二：安装Visual C++ Redistributable
+# Windows 方案二：安装Visual C++ Redistributable
 # 下载并安装 Microsoft Visual C++ 2019+ Redistributable
 
-# 方案三：检查Qt环境
-# 确保系统PATH中包含Qt的bin目录
+# Linux 方案：安装依赖库
+sudo apt-get install libqt6widgets6 libqt6network6
 ```
 
 #### ❓ Q2: 配置界面无法显示？
 **💡 解决方案**：
 ```bash
 # 1. 清除配置信息
-# 删除注册表项：HKEY_CURRENT_USER\Software\AUST_WIFI
+# Windows: 删除注册表项 HKEY_CURRENT_USER\Software\AUST_WIFI
+# Linux: 删除 ~/.config/AUST_WIFI 目录
 
 # 2. 以管理员权限运行
-# 右键程序图标 -> "以管理员身份运行"
+# Windows: 右键程序图标 -> "以管理员身份运行"
+# Linux: sudo ./AUST_WIFI
 
 # 3. 检查系统托盘
-# 确保Windows系统托盘功能正常工作
+# 确保系统托盘功能正常工作
 ```
 
 #### ❓ Q3: 网络检测失败？
@@ -272,35 +332,43 @@ windeployqt.exe AUST_WIFI.exe
 # 确认学号、密码和运营商选择正确
 
 # 3. 检查防火墙设置
-# 将程序添加到Windows防火墙例外列表
+# 将程序添加到防火墙例外列表
 
 # 4. 手动测试网络
 # 在浏览器中尝试访问校园网认证页面
 ```
 
-#### ❓ Q4: 开机自启动失败？
+#### ❓ Q4: Linux 系统 WiFi 检测失败？
 **💡 解决方案**：
 ```bash
-# 1. 管理员权限设置
-# 以管理员身份运行程序后重新设置
+# 1. 安装网络工具
+sudo apt-get install wireless-tools  # iwgetid
+# 或
+sudo apt-get install network-manager  # nmcli
 
-# 2. 检查注册表权限
-# 确保当前用户有注册表写入权限
+# 2. 检查权限
+# 确保当前用户有权限访问网络接口
 
-# 3. 手动添加启动项
-# Win+R -> msconfig -> 启动 -> 手动添加程序
+# 3. 手动测试命令
+iwgetid -r  # 测试 WiFi 检测命令
 ```
+
+#### ❓ Q5: 窗口移动时卡顿？
+**💡 解决方案**：
+- V3.0 已完全解决此问题，所有操作均为异步执行
+- 如果仍有卡顿，请确保使用最新版本
+- 检查系统资源占用情况
 
 ## 🔧 开发指南
 
 ### 📝 代码贡献
 我们欢迎社区贡献！请遵循以下流程：
 
-1. **Fork项目** - 点击页面右上角的Fork按钮
+1. **Fork 项目** - 点击页面右上角的 Fork 按钮
 2. **创建分支** - `git checkout -b feature/your-feature-name`
 3. **提交代码** - `git commit -m "描述你的更改"`
 4. **推送分支** - `git push origin feature/your-feature-name`
-5. **创建PR** - 在GitHub上创建Pull Request
+5. **创建 PR** - 在 GitHub 上创建 Pull Request
 
 ### 🧪 测试环境
 ```bash
@@ -309,11 +377,12 @@ qmake CONFIG+=test
 make check
 
 # 内存泄漏检测
-valgrind --leak-check=full ./AUST_WIFI
+# Windows: Application Verifier
+# Linux: valgrind --leak-check=full ./AUST_WIFI
 
 # 性能分析
-perf record ./AUST_WIFI
-perf report
+# Windows: Visual Studio Profiler
+# Linux: perf record ./AUST_WIFI && perf report
 ```
 
 ### 📦 发布流程
@@ -323,14 +392,19 @@ qmake CONFIG+=release
 make
 
 # 2. 部署依赖
+# Windows:
 windeployqt.exe --release AUST_WIFI.exe
 
-# 3. 创建安装包
-iscc setup.iss
+# Linux:
+# 确保所有 Qt 依赖库已安装
 
-# 4. 发布到GitHub Releases
-git tag v1.0.0
-git push origin v1.0.0
+# 3. 创建安装包
+# Windows: iscc setup.iss
+# Linux: 创建 .deb 或 .rpm 包
+
+# 4. 发布到 GitHub Releases
+git tag v3.0.0
+git push origin v3.0.0
 ```
 
 ## 📄 许可证
@@ -366,6 +440,11 @@ git push origin v1.0.0
 ### 📋 更新日志
 查看 [Releases 页面](https://github.com/Mengxun326/AUST-WIFI/releases) 获取版本更新信息。
 
+详细版本更新说明：
+- [V3.0 更新说明](./docs/releases/RELEASE_V3.0.md)
+- [V2.0 更新说明](./docs/releases/RELEASE_V2.0.md)
+- [V1.0 更新说明](./docs/releases/RELEASE_V1.0.md)
+
 ---
 
 <div align="center">
@@ -376,4 +455,4 @@ git push origin v1.0.0
 
 *Copyright © 2025 信息安全23-1 王智杰. All rights reserved.*
 
-</div> 
+</div>

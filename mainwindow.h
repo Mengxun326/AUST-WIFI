@@ -6,7 +6,9 @@
 #include <QMenu>
 #include <QAction>
 #include <QCloseEvent>
+#include <QMoveEvent>
 #include <QApplication>
+#include <QTimer>
 #include "wifimanager.h"
 #include "config_dialog.h"
 
@@ -26,12 +28,12 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void moveEvent(QMoveEvent *event) override;
 
 private slots:
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
     void onShowConfig();
-    void onStartAutoReconnect();
-    void onStopAutoReconnect();
+    void onToggleAutoReconnect();
     void onQuit();
     void onConnectionStatusChanged(bool connected);
     void onLoginResult(bool success, const QString &message);
@@ -43,6 +45,7 @@ private:
     void createConfigDialog();
     void checkFirstRun();
     void startBackgroundMode();
+    void updateWifiInfo();
 
     Ui::MainWindow *ui;
     QSystemTrayIcon *m_trayIcon;
@@ -58,6 +61,10 @@ private:
     bool m_isFirstRun;
     bool m_backgroundMode;
     bool m_isConfigDialogOpen;  // 配置对话框是否打开
+    bool m_isAutoReconnectActive;  // 自动重连是否激活
+    QTimer *m_wifiInfoTimer;  // WiFi信息更新定时器
+    QTimer *m_moveEndTimer;  // 窗口移动结束检测定时器
+    void updateToggleButton();  // 更新切换按钮的状态和文本
 };
 
 #endif // MAINWINDOW_H

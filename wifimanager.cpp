@@ -5,6 +5,13 @@
 #include <QThread>
 #include <QEventLoop>
 #include <QDebug>
+#include <QRegularExpression>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+#include <QTextCodec>
+#endif
 
 WiFiManager::WiFiManager(QObject *parent)
     : QObject(parent)
@@ -19,6 +26,8 @@ WiFiManager::WiFiManager(QObject *parent)
     , m_loginRetryCount(0)
     , m_isConfiguring(false)
     , m_lastLoginSuccess()
+    , m_ssidProcess(nullptr)
+    , m_isUpdatingSSID(false)
 {
     // 初始化设置
     m_settings = new QSettings("AUST_WIFI", "Config", this);
@@ -30,9 +39,8 @@ WiFiManager::WiFiManager(QObject *parent)
     m_checkTimer = new QTimer(this);
     connect(m_checkTimer, &QTimer::timeout, this, &WiFiManager::checkConnection);
     
-    // 初始化当前SSID
-    m_currentSSID = getCurrentWifiSSID();
-    qDebug() << "程序启动时的WiFi SSID:" << m_currentSSID;
+    // 异步初始化当前SSID（不阻塞）
+    updateWifiSSIDAsync();
     
     // 添加定时器状态监控，每10秒检查一次定时器是否正常工作
     QTimer *watchdogTimer = new QTimer(this);
@@ -489,7 +497,9 @@ void WiFiManager::onConnectionCheckFinished()
     }
     
     // 无论m_currentReply是否存在，都要检测WiFi变化
-    newSSID = getCurrentWifiSSID();
+    // 异步更新SSID（不阻塞）
+    updateWifiSSIDAsync();
+    newSSID = m_currentSSID;  // 使用缓存的SSID
     qDebug() << "检测到当前WiFi SSID:" << newSSID;
     
     bool ssidChanged = (newSSID != m_currentSSID && !m_currentSSID.isEmpty());
@@ -910,47 +920,192 @@ void WiFiManager::sendTeacherLoginRequestQt(const QString &user, const QString &
 
 QString WiFiManager::getCurrentWifiSSID()
 {
-    QProcess process;
-    process.start("netsh", QStringList() << "wlan" << "show" << "profiles");
-    process.waitForFinished(3000); // 等待3秒
-    
-    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-        qDebug() << "获取WiFi配置文件失败:" << process.errorString();
-        return "";
+    // 返回缓存的SSID（非阻塞，立即返回）
+    return m_currentSSID;
+}
+
+void WiFiManager::updateWifiSSIDAsync()
+{
+    // 如果正在更新，跳过
+    if (m_isUpdatingSSID) {
+        return;
     }
     
-    QString output = QString::fromLocal8Bit(process.readAllStandardOutput());
-    QStringList lines = output.split('\n');
-    
-    // 查找当前连接的WiFi
-    QProcess currentProcess;
-    currentProcess.start("netsh", QStringList() << "wlan" << "show" << "interfaces");
-    currentProcess.waitForFinished(3000);
-    
-    if (currentProcess.exitStatus() != QProcess::NormalExit || currentProcess.exitCode() != 0) {
-        qDebug() << "获取当前WiFi接口失败:" << currentProcess.errorString();
-        return "";
+    // 清理之前的进程
+    if (m_ssidProcess) {
+        m_ssidProcess->kill();
+        m_ssidProcess->deleteLater();
+        m_ssidProcess = nullptr;
     }
     
-    QString interfaceOutput = QString::fromLocal8Bit(currentProcess.readAllStandardOutput());
-    QStringList interfaceLines = interfaceOutput.split('\n');
+    m_isUpdatingSSID = true;
+    m_ssidProcess = new QProcess(this);
     
-    for (const QString &line : interfaceLines) {
+    // 连接完成信号
+    connect(m_ssidProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, &WiFiManager::onWifiSSIDProcessFinished);
+    
+#ifdef Q_OS_WIN
+    // 优先使用chcp设置UTF-8代码页后运行netsh，避免编码问题
+    m_ssidProcess->start("cmd", QStringList() 
+        << "/c" 
+        << "chcp 65001 >nul 2>&1 && netsh wlan show interfaces");
+#elif defined(Q_OS_LINUX)
+    // 优先使用iwgetid获取当前SSID
+    m_ssidProcess->start("iwgetid", QStringList() << "-r");
+#elif defined(Q_OS_MACOS)
+    m_ssidProcess->start("/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport",
+                         QStringList() << "-I");
+#else
+    m_isUpdatingSSID = false;
+    return;
+#endif
+    
+    if (!m_ssidProcess->waitForStarted(1000)) {
+        qDebug() << "启动WiFi SSID检测进程失败:" << m_ssidProcess->errorString();
+        m_ssidProcess->deleteLater();
+        m_ssidProcess = nullptr;
+        m_isUpdatingSSID = false;
+    }
+}
+
+void WiFiManager::onWifiSSIDProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    m_isUpdatingSSID = false;
+    
+    if (exitStatus != QProcess::NormalExit || exitCode != 0) {
+        qDebug() << "WiFi SSID检测进程异常退出:" << exitCode;
+        if (m_ssidProcess) {
+            m_ssidProcess->deleteLater();
+            m_ssidProcess = nullptr;
+        }
+        return;
+    }
+    
+    QString newSSID = "";
+    QByteArray output = m_ssidProcess->readAllStandardOutput();
+    
+#ifdef Q_OS_WIN
+    // 处理Windows输出（UTF-8编码）
+    QString result = QString::fromUtf8(output);
+    QStringList lines = result.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
         QString trimmedLine = line.trimmed();
+        // 跳过chcp的输出行
+        if (trimmedLine.contains("Active code page") || trimmedLine.contains("活动代码页")) {
+            continue;
+        }
         if (trimmedLine.contains("SSID") && trimmedLine.contains(":")) {
             QStringList parts = trimmedLine.split(":");
             if (parts.size() >= 2) {
                 QString ssid = parts[1].trimmed();
-                if (!ssid.isEmpty()) {
-                    qDebug() << "检测到当前WiFi SSID:" << ssid;
-                    return ssid;
+                if (!ssid.isEmpty() && !ssid.contains("SSID")) {
+                    newSSID = ssid;
+                    break;
                 }
             }
         }
     }
     
-    qDebug() << "未能检测到当前WiFi SSID";
-    return "";
+    // 如果chcp方法失败，尝试备用方案（异步）
+    if (newSSID.isEmpty()) {
+        QProcess *psProcess = new QProcess(this);
+        psProcess->start("powershell", QStringList() 
+            << "-NoProfile"
+            << "-Command" 
+            << "$result = netsh wlan show interfaces 2>$null; if ($result) { $match = [regex]::Match($result, '(?m)^\\s*SSID\\s*:\\s*(.+)$'); if ($match.Success) { $ssid = $match.Groups[1].Value.Trim(); [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::Write($ssid) } }");
+        
+        connect(psProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                [this, psProcess](int exitCode, QProcess::ExitStatus exitStatus) {
+            if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+                QByteArray psOutput = psProcess->readAllStandardOutput();
+                QString ssid = QString::fromUtf8(psOutput).trimmed();
+                ssid = ssid.remove('\r').remove('\n').remove(QChar::ByteOrderMark);
+                if (!ssid.isEmpty() && ssid != "null" && ssid != "False" && !ssid.contains("SSID") && !ssid.startsWith("SSID")) {
+                    QString oldSSID = m_currentSSID;
+                    m_currentSSID = ssid;
+                    emit wifiSSIDUpdated(ssid);
+                    qDebug() << "通过PowerShell异步检测到当前WiFi SSID:" << ssid;
+                    if (oldSSID != ssid) {
+                        m_detectedUserType = determineUserTypeBySSID(ssid);
+                    }
+                }
+            }
+            psProcess->deleteLater();
+        });
+        psProcess->start();
+    }
+    
+#elif defined(Q_OS_LINUX)
+    // 处理Linux输出
+    newSSID = QString::fromUtf8(output).trimmed();
+    if (newSSID.isEmpty()) {
+        // 备用方案：使用nmcli（异步）
+        QProcess *nmcliProcess = new QProcess(this);
+        nmcliProcess->start("nmcli", QStringList() << "-t" << "-f" << "active,ssid" << "dev" << "wifi");
+        
+        connect(nmcliProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                [this, nmcliProcess](int exitCode, QProcess::ExitStatus exitStatus) {
+            if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+                QString output = QString::fromUtf8(nmcliProcess->readAllStandardOutput());
+                const QStringList lines = output.split('\n', Qt::SkipEmptyParts);
+                for (const QString &line : lines) {
+                    const QStringList parts = line.split(':');
+                    if (parts.size() == 2 && parts[0] == "yes") {
+                        QString ssid = parts[1].trimmed();
+                        if (!ssid.isEmpty()) {
+                            QString oldSSID = m_currentSSID;
+                            m_currentSSID = ssid;
+                            emit wifiSSIDUpdated(ssid);
+                            qDebug() << "通过nmcli异步检测到当前WiFi SSID:" << ssid;
+                            if (oldSSID != ssid) {
+                                m_detectedUserType = determineUserTypeBySSID(ssid);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            nmcliProcess->deleteLater();
+        });
+        nmcliProcess->start();
+    }
+    
+#elif defined(Q_OS_MACOS)
+    // 处理macOS输出
+    QString outputStr = QString::fromUtf8(output);
+    QStringList lines = outputStr.split('\n', Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
+        if (line.contains(" SSID: ")) {
+            QStringList parts = line.split(" SSID: ");
+            if (parts.size() == 2) {
+                newSSID = parts[1].trimmed();
+                break;
+            }
+        }
+    }
+#endif
+    
+    // 更新缓存的SSID
+    if (!newSSID.isEmpty()) {
+        QString oldSSID = m_currentSSID;
+        m_currentSSID = newSSID;
+        emit wifiSSIDUpdated(newSSID);
+        qDebug() << "异步检测到当前WiFi SSID:" << newSSID;
+        
+        // 如果SSID发生变化，更新用户类型
+        if (oldSSID != newSSID) {
+            m_detectedUserType = determineUserTypeBySSID(newSSID);
+        }
+    } else {
+        qDebug() << "未能异步检测到当前WiFi SSID";
+    }
+    
+    // 清理进程
+    if (m_ssidProcess) {
+        m_ssidProcess->deleteLater();
+        m_ssidProcess = nullptr;
+    }
 }
 
 QString WiFiManager::determineUserTypeBySSID(const QString &ssid)
@@ -971,7 +1126,7 @@ QString WiFiManager::determineUserTypeBySSID(const QString &ssid)
         qDebug() << "检测到其他WiFi网络:" << ssid << "，默认使用学生登录";
         return "student";
     }
-} 
+}
 
 void WiFiManager::handleLoginFailure(const QString &errorMessage)
 {
@@ -1020,12 +1175,10 @@ void WiFiManager::handleLoginFailure(const QString &errorMessage)
         QPointer<WiFiManager> self(this);
         QTimer::singleShot(30000, [self]() {  // 30秒后重新开始
             if (!self) {
-                qDebug() << "WiFiManager 对象已销毁，取消30秒冷却重试";
                 return;
             }
-            
-            qDebug() << "30秒冷却时间结束，重新开始检测";
-            if (!self->m_isConnected && !self->m_loginReply) {
+            self->m_loginRetryCount = 0;
+            if (!self->m_isConnected) {
                 self->checkConnection();
             }
         });

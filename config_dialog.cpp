@@ -53,6 +53,7 @@ void ConfigDialog::loadConfig()
     
     // 加载公共设置
     ui->autoStartCheck->setChecked(m_settings->value("autoStart", false).toBool());
+    ui->minimizeToTrayCheck->setChecked(m_settings->value("minimizeToTray", true).toBool());
 }
 
 void ConfigDialog::saveConfig()
@@ -69,6 +70,7 @@ void ConfigDialog::saveConfig()
     
     // 保存公共设置
     m_settings->setValue("autoStart", ui->autoStartCheck->isChecked());
+    m_settings->setValue("minimizeToTray", ui->minimizeToTrayCheck->isChecked());
     m_settings->sync();
 }
 

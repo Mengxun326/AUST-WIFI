@@ -6,287 +6,338 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>480</width>
-    <height>600</height>
+    <width>640</width>
+    <height>720</height>
    </rect>
   </property>
+  <property name="minimumSize">
+   <size>
+    <width>600</width>
+    <height>680</height>
+   </size>
+  </property>
   <property name="windowTitle">
-   <string>AUST WiFi 双用户配置</string>
+   <string>配置设置</string>
   </property>
   <property name="modal">
    <bool>true</bool>
   </property>
   <property name="styleSheet">
-   <string notr="true">QDialog {
-    background-color: #f5f5f5;
+   <string notr="true">/* Windows 11 Fluent Design Style - Config Dialog */
+QDialog {
+    background-color: #F3F3F3;
+    font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-QLabel {
-    color: #333;
-    font-size: 12px;
-    font-weight: bold;
+/* 卡片样式 */
+QFrame#headerCard, QFrame#contentCard {
+    background-color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 0px;
 }
 
-QLineEdit {
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 10px;
-    font-size: 12px;
-    background-color: white;
-    min-height: 20px;
+/* 标题样式 */
+QLabel#dialogTitleLabel {
+    font-size: 24px;
+    font-weight: 600;
+    color: #202020;
+    background: transparent;
+    border: none;
+    padding: 0px;
 }
 
-QLineEdit:focus {
-    border-color: #0078d4;
+QLabel#dialogSubtitleLabel {
+    font-size: 14px;
+    font-weight: 400;
+    color: #606060;
+    background: transparent;
+    border: none;
+    padding: 0px;
 }
 
-QComboBox {
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 10px;
-    font-size: 12px;
-    background-color: white;
-    min-height: 20px;
+/* 选项卡样式 - Windows 11风格 */
+QTabWidget::pane {
+    border: none;
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    margin-top: -1px;
+    min-height: 400px;
 }
 
-QComboBox:focus {
-    border-color: #0078d4;
+QTabBar::tab {
+    background-color: transparent;
+    color: #606060;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 12px 24px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    min-width: 120px;
 }
 
-QCheckBox {
-    font-size: 12px;
-    color: #333;
-    padding: 8px;
+QTabBar::tab:selected {
+    color: #0078D4;
+    border-bottom: 2px solid #0078D4;
+    background-color: transparent;
 }
 
+QTabBar::tab:hover:!selected {
+    color: #202020;
+    background-color: #F9F9F9;
+}
+
+QTabBar::tab:first {
+    margin-left: 0px;
+}
+
+/* 分组框样式 */
 QGroupBox {
-    font-weight: bold;
-    border: 2px solid #ccc;
-    border-radius: 5px;
-    margin-top: 15px;
-    margin-bottom: 10px;
-    padding-top: 15px;
-    padding-bottom: 10px;
+    border: none;
+    border-radius: 8px;
+    background-color: #FAFAFA;
+    margin-top: 8px;
+    padding-top: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #202020;
 }
 
 QGroupBox::title {
     subcontrol-origin: margin;
-    left: 10px;
-    padding: 0 8px 0 8px;
-    font-size: 13px;
+    subcontrol-position: top;
+    left: 16px;
+    padding: 0px 8px;
+    background-color: #FAFAFA;
+    color: #202020;
+    font-size: 14px;
+    font-weight: 600;
 }
 
-QPushButton {
-    background-color: #0078d4;
+/* 标签样式 */
+QLabel {
+    font-size: 13px;
+    font-weight: 500;
+    color: #202020;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+/* 输入框样式 - Windows 11风格 */
+QLineEdit {
+    border: 1px solid #E1E1E1;
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-size: 14px;
+    background-color: #FFFFFF;
+    color: #202020;
+    min-height: 20px;
+    selection-background-color: #0078D4;
+    selection-color: #FFFFFF;
+}
+
+QLineEdit:focus {
+    border: 2px solid #0078D4;
+    padding: 9px 11px;
+    background-color: #FFFFFF;
+}
+
+QLineEdit:hover:!focus {
+    border-color: #C1C1C1;
+}
+
+QLineEdit:disabled {
+    background-color: #F3F3F3;
+    color: #A0A0A0;
+    border-color: #E1E1E1;
+}
+
+/* 下拉框样式 */
+QComboBox {
+    border: 1px solid #E1E1E1;
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-size: 14px;
+    background-color: #FFFFFF;
+    color: #202020;
+    min-height: 20px;
+    selection-background-color: #0078D4;
+    selection-color: #FFFFFF;
+}
+
+QComboBox:focus {
+    border: 2px solid #0078D4;
+    padding: 9px 11px;
+}
+
+QComboBox:hover:!focus {
+    border-color: #C1C1C1;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 30px;
+    background-color: transparent;
+}
+
+QComboBox::down-arrow {
+    width: 12px;
+    height: 12px;
+}
+
+QComboBox QAbstractItemView {
+    border: 1px solid #E1E1E1;
+    border-radius: 4px;
+    background-color: #FFFFFF;
+    selection-background-color: #E8F4FD;
+    selection-color: #202020;
+    padding: 4px;
+}
+
+/* 复选框样式 */
+QCheckBox {
+    font-size: 14px;
+    font-weight: 400;
+    color: #202020;
+    spacing: 10px;
+}
+
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #606060;
+    border-radius: 3px;
+    background-color: #FFFFFF;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #0078D4;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0078D4;
+    border-color: #0078D4;
+    image: none;
+}
+
+/* 按钮样式 */
+QPushButton#saveButton {
+    background-color: #0078D4;
     border: none;
     border-radius: 4px;
-    color: white;
-    font-size: 13px;
-    padding: 12px 20px;
-    min-height: 30px;
-    font-weight: bold;
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 24px;
+    min-height: 36px;
+    min-width: 100px;
 }
 
-QPushButton:hover {
-    background-color: #106ebe;
+QPushButton#saveButton:hover {
+    background-color: #106EBE;
 }
 
-QPushButton:pressed {
-    background-color: #005a9e;
+QPushButton#saveButton:pressed {
+    background-color: #005A9E;
+}
+
+QPushButton#saveButton:disabled {
+    background-color: #E1E1E1;
+    color: #A0A0A0;
 }
 
 QPushButton#cancelButton {
-    background-color: #d13438;
+    background-color: transparent;
+    border: 1px solid #E1E1E1;
+    border-radius: 4px;
+    color: #202020;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 24px;
+    min-height: 36px;
+    min-width: 100px;
 }
 
 QPushButton#cancelButton:hover {
-    background-color: #b52d31;
+    background-color: #F9F9F9;
+    border-color: #C1C1C1;
 }
 
 QPushButton#cancelButton:pressed {
-    background-color: #9a272a;
+    background-color: #F3F3F3;
+}
+
+/* 提示文本 */
+QLabel#hintLabel, QLabel#studentHintLabel, QLabel#teacherHintLabel, QLabel#settingsHintLabel {
+    font-size: 12px;
+    font-weight: 400;
+    color: #606060;
+    font-style: italic;
+    background: transparent;
+    border: none;
+    padding: 0px;
+}
+
+/* 分隔线 */
+QFrame#divider {
+    background-color: #E1E1E1;
+    max-height: 1px;
+    min-height: 1px;
+    border: none;
 }</string>
   </property>
   <layout class="QVBoxLayout" name="mainLayout">
    <property name="spacing">
-    <number>20</number>
+    <number>0</number>
    </property>
    <property name="leftMargin">
-    <number>30</number>
+    <number>24</number>
    </property>
    <property name="topMargin">
-    <number>30</number>
+    <number>24</number>
    </property>
    <property name="rightMargin">
-    <number>30</number>
+    <number>24</number>
    </property>
    <property name="bottomMargin">
-    <number>30</number>
+    <number>24</number>
    </property>
    <item>
-    <widget class="QGroupBox" name="studentGroup">
-     <property name="title">
-      <string>👨‍🎓 学生配置</string>
+    <widget class="QFrame" name="headerCard">
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
      </property>
-     <layout class="QFormLayout" name="studentLayout">
-      <property name="labelAlignment">
-       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-      </property>
-      <property name="formAlignment">
-       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-      </property>
-      <property name="horizontalSpacing">
-       <number>10</number>
-      </property>
-      <property name="verticalSpacing">
-       <number>15</number>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QVBoxLayout" name="headerLayout">
+      <property name="spacing">
+       <number>8</number>
       </property>
       <property name="leftMargin">
-       <number>20</number>
+       <number>24</number>
       </property>
       <property name="topMargin">
-       <number>25</number>
+       <number>24</number>
       </property>
       <property name="rightMargin">
-       <number>20</number>
+       <number>24</number>
       </property>
       <property name="bottomMargin">
-       <number>20</number>
+       <number>24</number>
       </property>
-      <property name="fieldGrowthPolicy">
-       <enum>QFormLayout::ExpandingFieldsGrow</enum>
-      </property>
-      <item row="0" column="0">
-       <widget class="QLabel" name="studentUserLabel">
+      <item>
+       <widget class="QLabel" name="dialogTitleLabel">
         <property name="text">
-         <string>学号:</string>
+         <string>配置设置</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="studentUserEdit">
-        <property name="placeholderText">
-         <string>请输入完整学号（如：2023305123）</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="studentPasswordLabel">
+      <item>
+       <widget class="QLabel" name="dialogSubtitleLabel">
         <property name="text">
-         <string>密码:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="studentPasswordEdit">
-        <property name="echoMode">
-         <enum>QLineEdit::Password</enum>
-        </property>
-        <property name="placeholderText">
-         <string>请输入校园网密码</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="studentServerLabel">
-        <property name="text">
-         <string>运营商:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QComboBox" name="studentServerCombo">
-        <item>
-         <property name="text">
-          <string>电信</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>联通</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>移动</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="teacherGroup">
-     <property name="title">
-      <string>👨‍🏫 教师配置</string>
-     </property>
-     <layout class="QFormLayout" name="teacherLayout">
-      <property name="labelAlignment">
-       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-      </property>
-      <property name="formAlignment">
-       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-      </property>
-      <property name="horizontalSpacing">
-       <number>10</number>
-      </property>
-      <property name="verticalSpacing">
-       <number>15</number>
-      </property>
-      <property name="leftMargin">
-       <number>20</number>
-      </property>
-      <property name="topMargin">
-       <number>25</number>
-      </property>
-      <property name="rightMargin">
-       <number>20</number>
-      </property>
-      <property name="bottomMargin">
-       <number>20</number>
-      </property>
-      <property name="fieldGrowthPolicy">
-       <enum>QFormLayout::ExpandingFieldsGrow</enum>
-      </property>
-      <item row="0" column="0">
-       <widget class="QLabel" name="teacherUserLabel">
-        <property name="text">
-         <string>工号:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="teacherUserEdit">
-        <property name="placeholderText">
-         <string>请输入工号（如：2021043）</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="teacherPasswordLabel">
-        <property name="text">
-         <string>密码:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="teacherPasswordEdit">
-        <property name="echoMode">
-         <enum>QLineEdit::Password</enum>
-        </property>
-        <property name="placeholderText">
-         <string>请输入校园网密码</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0" colspan="2">
-       <widget class="QLabel" name="teacherNote">
-        <property name="text">
-         <string>注：教师账号固定使用学校服务器，无需选择运营商</string>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">color: #666; font-size: 11px; font-weight: normal; font-style: italic; padding-top: 10px;</string>
+         <string>配置您的学生和教师账号信息，系统将根据WiFi网络自动选择对应配置</string>
         </property>
        </widget>
       </item>
@@ -294,69 +345,394 @@ QPushButton#cancelButton:pressed {
     </widget>
    </item>
    <item>
-    <spacer name="verticalSpacer">
+    <spacer name="headerSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeType">
-      <enum>QSizePolicy::Fixed</enum>
      </property>
      <property name="sizeHint">
       <size>
        <width>20</width>
-       <height>10</height>
+       <height>16</height>
       </size>
      </property>
     </spacer>
    </item>
    <item>
-    <widget class="QCheckBox" name="autoStartCheck">
-     <property name="text">
-      <string>开机自动启动</string>
+    <widget class="QFrame" name="contentCard">
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
      </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QVBoxLayout" name="contentLayout">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QTabWidget" name="tabWidget">
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <widget class="QWidget" name="studentTab">
+         <attribute name="title">
+          <string>学生配置</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="studentTabLayout">
+          <property name="spacing">
+           <number>20</number>
+          </property>
+          <property name="leftMargin">
+           <number>24</number>
+          </property>
+          <property name="topMargin">
+           <number>24</number>
+          </property>
+          <property name="rightMargin">
+           <number>24</number>
+          </property>
+          <property name="bottomMargin">
+           <number>24</number>
+          </property>
+          <item>
+           <widget class="QGroupBox" name="studentGroup">
+            <property name="title">
+             <string>学生账号信息</string>
+            </property>
+            <layout class="QFormLayout" name="studentLayout">
+             <property name="labelAlignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+             <property name="formAlignment">
+              <set>Qt::AlignHCenter|Qt::AlignTop</set>
+             </property>
+             <property name="horizontalSpacing">
+              <number>16</number>
+             </property>
+             <property name="verticalSpacing">
+              <number>20</number>
+             </property>
+             <property name="leftMargin">
+              <number>16</number>
+             </property>
+             <property name="topMargin">
+              <number>24</number>
+             </property>
+             <property name="rightMargin">
+              <number>16</number>
+             </property>
+             <property name="bottomMargin">
+              <number>20</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLabel" name="studentUserLabel">
+               <property name="text">
+                <string>学号</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="studentUserEdit">
+               <property name="placeholderText">
+                <string>请输入完整学号（如：2023305123）</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="studentPasswordLabel">
+               <property name="text">
+                <string>密码</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="studentPasswordEdit">
+               <property name="echoMode">
+                <enum>QLineEdit::Password</enum>
+               </property>
+               <property name="placeholderText">
+                <string>请输入校园网登录密码</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="studentServerLabel">
+               <property name="text">
+                <string>运营商</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="studentServerCombo">
+               <item>
+                <property name="text">
+                 <string>电信</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>联通</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>移动</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="studentHintLabel">
+            <property name="text">
+             <string>提示：学生账号需要选择对应的网络运营商（电信、联通或移动）</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="studentSpacer">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="teacherTab">
+         <attribute name="title">
+          <string>教师配置</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="teacherTabLayout">
+          <property name="spacing">
+           <number>20</number>
+          </property>
+          <property name="leftMargin">
+           <number>24</number>
+          </property>
+          <property name="topMargin">
+           <number>24</number>
+          </property>
+          <property name="rightMargin">
+           <number>24</number>
+          </property>
+          <property name="bottomMargin">
+           <number>24</number>
+          </property>
+          <item>
+           <widget class="QGroupBox" name="teacherGroup">
+            <property name="title">
+             <string>教师账号信息</string>
+            </property>
+            <layout class="QFormLayout" name="teacherLayout">
+             <property name="labelAlignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+             <property name="formAlignment">
+              <set>Qt::AlignHCenter|Qt::AlignTop</set>
+             </property>
+             <property name="horizontalSpacing">
+              <number>16</number>
+             </property>
+             <property name="verticalSpacing">
+              <number>20</number>
+             </property>
+             <property name="leftMargin">
+              <number>16</number>
+             </property>
+             <property name="topMargin">
+              <number>24</number>
+             </property>
+             <property name="rightMargin">
+              <number>16</number>
+             </property>
+             <property name="bottomMargin">
+              <number>20</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLabel" name="teacherUserLabel">
+               <property name="text">
+                <string>工号</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="teacherUserEdit">
+               <property name="placeholderText">
+                <string>请输入工号（如：2023001）</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="teacherPasswordLabel">
+               <property name="text">
+                <string>密码</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="teacherPasswordEdit">
+               <property name="echoMode">
+                <enum>QLineEdit::Password</enum>
+               </property>
+               <property name="placeholderText">
+                <string>请输入校园网登录密码</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="teacherHintLabel">
+            <property name="text">
+             <string>提示：教师账号固定使用学校统一服务器，无需选择运营商</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="teacherSpacer">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="settingsTab">
+         <attribute name="title">
+          <string>高级设置</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="settingsTabLayout">
+          <property name="spacing">
+           <number>20</number>
+          </property>
+          <property name="leftMargin">
+           <number>24</number>
+          </property>
+          <property name="topMargin">
+           <number>24</number>
+          </property>
+          <property name="rightMargin">
+           <number>24</number>
+          </property>
+          <property name="bottomMargin">
+           <number>24</number>
+          </property>
+          <item>
+           <widget class="QGroupBox" name="settingsGroup">
+            <property name="title">
+             <string>程序设置</string>
+            </property>
+            <layout class="QVBoxLayout" name="settingsLayout">
+             <property name="spacing">
+              <number>20</number>
+             </property>
+             <property name="leftMargin">
+              <number>16</number>
+             </property>
+             <property name="topMargin">
+              <number>24</number>
+             </property>
+             <property name="rightMargin">
+              <number>16</number>
+             </property>
+             <property name="bottomMargin">
+              <number>20</number>
+             </property>
+             <item>
+              <widget class="QCheckBox" name="autoStartCheck">
+               <property name="text">
+                <string>开机自动启动</string>
+               </property>
+               <property name="toolTip">
+                <string>程序将在系统启动时自动运行</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="minimizeToTrayCheck">
+               <property name="text">
+                <string>最小化到系统托盘</string>
+               </property>
+               <property name="toolTip">
+                <string>关闭窗口时最小化到系统托盘而不是退出程序</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="settingsHintLabel">
+            <property name="text">
+             <string>提示：程序设置将在保存后立即生效</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="settingsSpacer">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
    <item>
-    <spacer name="verticalSpacer_2">
+    <spacer name="contentSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeType">
-      <enum>QSizePolicy::Fixed</enum>
      </property>
      <property name="sizeHint">
       <size>
        <width>20</width>
-       <height>8</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item>
-    <widget class="QLabel" name="authorLabel">
-     <property name="text">
-      <string>信息安全23-1 王智杰</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">color: #888; font-size: 10px;</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <spacer name="verticalSpacer_3">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeType">
-      <enum>QSizePolicy::Fixed</enum>
-     </property>
-     <property name="sizeHint">
-      <size>
-       <width>20</width>
-       <height>15</height>
+       <height>16</height>
       </size>
      </property>
     </spacer>
@@ -364,11 +740,21 @@ QPushButton#cancelButton:pressed {
    <item>
     <layout class="QHBoxLayout" name="buttonLayout">
      <property name="spacing">
-      <number>20</number>
+      <number>12</number>
      </property>
-     <property name="topMargin">
-      <number>15</number>
-     </property>
+     <item>
+      <spacer name="buttonLeftSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
      <item>
       <widget class="QPushButton" name="saveButton">
        <property name="text">
@@ -389,4 +775,4 @@ QPushButton#cancelButton:pressed {
  </widget>
  <resources/>
  <connections/>
-</ui> 
+</ui>

@@ -4,6 +4,9 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++17
 
+# 默认使用Qt网络模块，跨平台可用
+DEFINES += USE_QT_NETWORK
+
 # 调试输出控制
 # 如需重新启用调试输出，请注释掉下面两行
 DEFINES += QT_NO_DEBUG_OUTPUT QT_NO_INFO_OUTPUT
@@ -12,6 +15,17 @@ DEFINES += QT_NO_DEBUG_OUTPUT QT_NO_INFO_OUTPUT
 win32 {
     CONFIG += windows
     CONFIG -= console
+
+    # 应用程序图标（仅Windows）
+    RC_ICONS = icons/app.ico
+
+    # libcurl配置（可选）
+    exists(curl/include/curl/curl.h) {
+        INCLUDEPATH += curl/include
+        LIBS += -Lcurl/lib -lcurl
+        DEFINES += USE_LIBCURL
+        DEFINES -= USE_QT_NETWORK
+    }
 }
 
 # You can make your code fail to compile if it uses deprecated APIs.
@@ -35,22 +49,6 @@ FORMS += \
 
 RESOURCES += \
     resources.qrc
-
-# 应用程序图标
-RC_ICONS = icons/app.ico
-
-# libcurl配置
-win32 {
-    # 检查是否存在libcurl，如果不存在则使用Qt的网络功能
-    exists(curl/include/curl/curl.h) {
-        INCLUDEPATH += curl/include
-        LIBS += -Lcurl/lib -lcurl
-        DEFINES += USE_LIBCURL
-    } else {
-        # 如果没有libcurl，使用Qt的网络功能
-        DEFINES += USE_QT_NETWORK
-    }
-}
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

@@ -48,7 +48,8 @@ public:
     void checkInternetConnection();
     
     // WiFi SSID检测
-    QString getCurrentWifiSSID();
+    QString getCurrentWifiSSID();  // 返回缓存的SSID（非阻塞）
+    void updateWifiSSIDAsync();    // 异步更新SSID缓存
     QString determineUserTypeBySSID(const QString &ssid);
     
     // 发送登录请求
@@ -74,12 +75,14 @@ public:
 signals:
     void connectionStatusChanged(bool connected);
     void loginResult(bool success, const QString &message);
+    void wifiSSIDUpdated(const QString &ssid);  // SSID更新完成信号
 
 private slots:
     void checkConnection();
     void onConnectionCheckFinished();
     void onLoginFinished();
     void handleLoginFailure(const QString &errorMessage);
+    void onWifiSSIDProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);  // WiFi SSID检测完成
 
 private:
     QTimer *m_checkTimer;
@@ -94,6 +97,8 @@ private:
     // WiFi检测相关
     QString m_currentSSID;
     QString m_detectedUserType;
+    QPointer<QProcess> m_ssidProcess;  // 用于异步SSID检测的QProcess
+    bool m_isUpdatingSSID;  // 是否正在更新SSID
     
     // 重试机制
     int m_loginRetryCount;
