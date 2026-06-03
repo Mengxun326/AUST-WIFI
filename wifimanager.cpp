@@ -356,6 +356,11 @@ bool WiFiManager::isTimerActive() const
     return m_checkTimer && m_checkTimer->isActive();
 }
 
+bool WiFiManager::isConnected() const
+{
+    return m_isConnected;
+}
+
 void WiFiManager::checkInternetConnection()
 {
     // 如果有登录请求正在进行，跳过网络检测避免冲突

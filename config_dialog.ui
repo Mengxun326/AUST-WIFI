@@ -26,12 +26,14 @@
    <string notr="true">/* Windows 11 Fluent Design Style - Config Dialog */
 QDialog {
     background-color: #F3F3F3;
+    color: #202020;
     font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* 卡片样式 */
 QFrame#headerCard, QFrame#contentCard {
     background-color: #FFFFFF;
+    color: #202020;
     border: none;
     border-radius: 8px;
     padding: 0px;
@@ -60,6 +62,7 @@ QLabel#dialogSubtitleLabel {
 QTabWidget::pane {
     border: none;
     background-color: #FFFFFF;
+    color: #202020;
     border-radius: 8px;
     margin-top: -1px;
     min-height: 400px;
@@ -191,7 +194,6 @@ QComboBox QAbstractItemView {
     border-radius: 4px;
     background-color: #FFFFFF;
     selection-background-color: #E8F4FD;
-    selection-color: #202020;
     padding: 4px;
 }
 

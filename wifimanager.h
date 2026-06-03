@@ -71,6 +71,7 @@ public:
     // 状态检查
     void printCurrentStatus();      // 打印当前状态信息（用于调试）
     bool isTimerActive() const;     // 检查定时器是否活动
+    bool isConnected() const;       // 检查当前是否已连接
 
 signals:
     void connectionStatusChanged(bool connected);

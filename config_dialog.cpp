@@ -24,6 +24,15 @@ ConfigDialog::~ConfigDialog()
     delete ui;
 }
 
+void ConfigDialog::changeEvent(QEvent *event)
+{
+    QDialog::changeEvent(event);
+    if (event->type() == QEvent::ApplicationPaletteChange) {
+        style()->unpolish(this);
+        style()->polish(this);
+    }
+}
+
 void ConfigDialog::setupComboBoxData()
 {
     // 清空并重新设置运营商下拉框

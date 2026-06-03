@@ -23,6 +23,7 @@
    <string notr="true">/* Windows 11 Fluent Design Style */
 QMainWindow {
     background-color: #F3F3F3;
+    color: #202020;
     font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -33,6 +34,7 @@ QWidget#centralwidget {
 /* 卡片样式 */
 QFrame#statusCard, QFrame#infoCard, QFrame#actionCard {
     background-color: #FFFFFF;
+    color: #202020;
     border: none;
     border-radius: 8px;
     padding: 0px;

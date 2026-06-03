@@ -11,6 +11,8 @@
 #include <QStyle>
 #include <QTimer>
 #include <QDateTime>
+#include <QEvent>
+#include <QStyleHints>
 
 // MainWindow 实现
 MainWindow::MainWindow(QWidget *parent)
@@ -169,16 +171,27 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::moveEvent(QMoveEvent *event)
 {
     QMainWindow::moveEvent(event);
-    
+
     // 窗口移动时暂停WiFi信息更新，避免卡顿
     if (m_wifiInfoTimer && m_wifiInfoTimer->isActive()) {
         m_wifiInfoTimer->stop();
     }
-    
+
     // 重置移动结束检测定时器
     if (m_moveEndTimer) {
         m_moveEndTimer->stop();
         m_moveEndTimer->start();
+    }
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    if (event->type() == QEvent::ApplicationPaletteChange) {
+        updateToggleButton();
+        if (m_wifiManager) {
+            onConnectionStatusChanged(m_wifiManager->isConnected());
+        }
     }
 }
 

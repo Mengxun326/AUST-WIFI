@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <QSettings>
 #include <QMessageBox>
+#include <QEvent>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -21,6 +22,9 @@ public:
     
     void loadConfig();
     void saveConfig();
+
+protected:
+    void changeEvent(QEvent *event) override;
 
 private slots:
     void onSaveClicked();

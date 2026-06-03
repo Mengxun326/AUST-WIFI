@@ -7,6 +7,7 @@
 #include <QAction>
 #include <QCloseEvent>
 #include <QMoveEvent>
+#include <QEvent>
 #include <QApplication>
 #include <QTimer>
 #include "wifimanager.h"
@@ -29,6 +30,7 @@ public:
 protected:
     void closeEvent(QCloseEvent *event) override;
     void moveEvent(QMoveEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private slots:
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
