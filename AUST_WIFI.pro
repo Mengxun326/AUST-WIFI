@@ -36,12 +36,15 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     wifimanager.cpp \
-    config_dialog.cpp
+    config_dialog.cpp \
+    updatemanager.cpp
 
 HEADERS += \
+    app_config.h \
     mainwindow.h \
     wifimanager.h \
-    config_dialog.h
+    config_dialog.h \
+    updatemanager.h
 
 FORMS += \
     mainwindow.ui \

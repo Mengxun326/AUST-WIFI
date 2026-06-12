@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "app_config.h"
 
 #include <QApplication>
 #include <QSystemTrayIcon>
@@ -17,7 +18,7 @@ int main(int argc, char *argv[])
     
     // 设置应用程序信息
     QApplication::setApplicationName("AUST WiFi 自动重连工具");
-    QApplication::setApplicationVersion("1.0");
+    QApplication::setApplicationVersion(APP_VERSION);
     QApplication::setOrganizationName("AUST");
     QApplication::setOrganizationDomain("aust.edu.cn");
     

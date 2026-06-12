@@ -13,6 +13,24 @@
 #include <QTextCodec>
 #endif
 
+namespace {
+QUrlQuery buildLoginQuery(const QString &user, const QString &server, const QString &password)
+{
+    QUrlQuery query;
+    query.addQueryItem("callback", "dr1003");
+    query.addQueryItem("DDDDD", QString("%1@%2").arg(user, server));
+    query.addQueryItem("upass", password);
+    query.addQueryItem("0MKKey", "123456");
+    query.addQueryItem("R1", "0");
+    query.addQueryItem("R3", "0");
+    query.addQueryItem("R6", "0");
+    query.addQueryItem("para", "00");
+    query.addQueryItem("v6ip", "");
+    query.addQueryItem("v", "");
+    return query;
+}
+}
+
 WiFiManager::WiFiManager(QObject *parent)
     : QObject(parent)
     , m_checkTimer(nullptr)
@@ -23,11 +41,11 @@ WiFiManager::WiFiManager(QObject *parent)
     , m_settings(nullptr)
     , m_currentSSID("")
     , m_detectedUserType("student")
+    , m_ssidProcess(nullptr)
+    , m_isUpdatingSSID(false)
     , m_loginRetryCount(0)
     , m_isConfiguring(false)
     , m_lastLoginSuccess()
-    , m_ssidProcess(nullptr)
-    , m_isUpdatingSSID(false)
 {
     // 初始化设置
     m_settings = new QSettings("AUST_WIFI", "Config", this);
@@ -191,15 +209,15 @@ bool WiFiManager::loadTeacherConfig(QString &user, QString &password)
 
 bool WiFiManager::hasStudentConfig()
 {
-    return m_settings->contains("student/user") && 
-           m_settings->contains("student/password") && 
-           m_settings->contains("student/server");
+    return !m_settings->value("student/user").toString().trimmed().isEmpty() &&
+           !m_settings->value("student/password").toString().isEmpty() &&
+           !m_settings->value("student/server").toString().trimmed().isEmpty();
 }
 
 bool WiFiManager::hasTeacherConfig()
 {
-    return m_settings->contains("teacher/user") && 
-           m_settings->contains("teacher/password");
+    return !m_settings->value("teacher/user").toString().trimmed().isEmpty() &&
+           !m_settings->value("teacher/password").toString().isEmpty();
 }
 
 bool WiFiManager::loadConfigByUserType(const QString &userType, QString &user, QString &password, QString &server)
@@ -496,22 +514,13 @@ void WiFiManager::onConnectionCheckFinished()
         return;
     }
     
-    // 无论m_currentReply是否存在，都要检测WiFi变化
-    // 异步更新SSID（不阻塞）
+    // 异步更新SSID（不阻塞）；实际切换处理在 onWifiSSIDProcessFinished 中完成
     updateWifiSSIDAsync();
     newSSID = m_currentSSID;  // 使用缓存的SSID
     qDebug() << "检测到当前WiFi SSID:" << newSSID;
     
-    bool ssidChanged = (newSSID != m_currentSSID && !m_currentSSID.isEmpty());
-    if (ssidChanged) {
-        qDebug() << "检测到WiFi网络变化：" << m_currentSSID << " -> " << newSSID;
-        m_currentSSID = newSSID;
-        // WiFi改变时强制重新认证
-        connected = false;
-        qDebug() << "WiFi变化导致需要重新认证";
-    } else {
-        qDebug() << "WiFi网络无变化，当前SSID:" << m_currentSSID;
-    }
+    const bool ssidChanged = false;
+    qDebug() << "WiFi网络当前缓存SSID:" << m_currentSSID;
     
     if (m_currentReply) {
         QNetworkReply::NetworkError error = m_currentReply->error();
@@ -574,20 +583,18 @@ void WiFiManager::onConnectionCheckFinished()
         
         // 只有在没有正在进行的登录请求时才尝试重新连接
         if (!m_loginReply || !m_loginReply->isRunning()) {
-            // 检测当前WiFi SSID并确定用户类型
+            // 检测当前WiFi SSID并确定登录使用的用户类型
             QString currentSSID = getCurrentWifiSSID();
             QString autoUserType = determineUserTypeBySSID(currentSSID);
+            QString effectiveUserType = determineEffectiveUserType(currentSSID);
             
             // 更新成员变量
             m_currentSSID = currentSSID;
-            m_detectedUserType = autoUserType;
+            m_detectedUserType = effectiveUserType;
             
             qDebug() << "网络未连通，尝试登录...";
             qDebug() << "当前WiFi SSID:" << currentSSID;
             qDebug() << "根据SSID检测的用户类型:" << autoUserType;
-            
-            // 使用SSID检测的用户类型，直接加载对应配置
-            QString effectiveUserType = autoUserType;
             qDebug() << "最终使用的用户类型:" << effectiveUserType;
             
             // 先验证配置有效性
@@ -664,7 +671,7 @@ void WiFiManager::onLoginFinished()
                 // 教师登录成功标志（JSONP响应）
                 loginSuccess = true;
                 qDebug() << "检测到教师登录成功标志: result:1";
-            } else if (response.contains("login_ok") || response.isEmpty()) {
+            } else if (response.contains("login_ok")) {
                 // 学生登录成功标志（根据实际情况调整）
                 loginSuccess = true;
                 qDebug() << "检测到学生登录成功";
@@ -737,19 +744,17 @@ void WiFiManager::sendPostRequest(const QString &user, const QString &password, 
     CURLcode res;
     long http_code = 0;
     
-    QString data = QString("callback=dr1003&DDDDD=%1@%2&upass=%3&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=")
-                   .arg(user)
-                   .arg(server)
-                   .arg(password);
-    
-    qDebug() << "发送的数据:" << data;
+    const QByteArray data = buildLoginQuery(user, server, password).query(QUrl::FullyEncoded).toUtf8();
+
+    qDebug() << "发送学生POST登录请求，账号:" << user << "服务器:" << server;
     
     QString response;
     curl = curl_easy_init();
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, "http://10.255.0.19/a79.htm");
         curl_easy_setopt(curl, CURLOPT_POST, 1L);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.toUtf8().constData());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.constData());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(data.size()));
         
         // 设置Content-Type头
         struct curl_slist* headers = nullptr;
@@ -786,16 +791,16 @@ void WiFiManager::sendTeacherLoginRequest(const QString &user, const QString &pa
     long http_code = 0;
     
     // 教师登录使用GET请求到drcom端点
-    QString urlWithParams = QString("http://10.255.0.19/drcom/login?callback=dr1003&DDDDD=%1@jzg&upass=%2&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=")
-                            .arg(user)
-                            .arg(password);
-    
-    qDebug() << "教师登录GET请求URL:" << urlWithParams;
+    QUrl url("http://10.255.0.19/drcom/login");
+    url.setQuery(buildLoginQuery(user, "jzg", password));
+    const QByteArray urlBytes = url.toEncoded();
+
+    qDebug() << "发送教师GET登录请求，账号:" << user;
     
     QString response;
     curl = curl_easy_init();
     if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, urlWithParams.toUtf8().constData());
+        curl_easy_setopt(curl, CURLOPT_URL, urlBytes.constData());
         curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 20L);  // 20秒超时，避免过早取消
@@ -836,12 +841,9 @@ void WiFiManager::sendPostRequestQt(const QString &user, const QString &password
     request.setHeader(QNetworkRequest::UserAgentHeader, "Mozilla/5.0");
     request.setTransferTimeout(10000); // 10秒超时，更快响应登录问题
     
-    QString data = QString("callback=dr1003&DDDDD=%1@%2&upass=%3&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=")
-                   .arg(user)
-                   .arg(server)
-                   .arg(password);
-    
-    qDebug() << "发送的数据:" << data;
+    const QByteArray data = buildLoginQuery(user, server, password).query(QUrl::FullyEncoded).toUtf8();
+
+    qDebug() << "发送学生POST登录请求，账号:" << user << "服务器:" << server;
     
     // 清理之前的登录请求
     if (m_loginReply) {
@@ -852,7 +854,7 @@ void WiFiManager::sendPostRequestQt(const QString &user, const QString &password
     }
     
     qDebug() << "发送POST登录请求到:" << request.url().toString();
-    m_loginReply = m_networkManager->post(request, data.toUtf8());
+    m_loginReply = m_networkManager->post(request, data);
     
     if (m_loginReply) {
         connect(m_loginReply, &QNetworkReply::finished, this, &WiFiManager::onLoginFinished);
@@ -873,11 +875,8 @@ void WiFiManager::sendPostRequestQt(const QString &user, const QString &password
 void WiFiManager::sendTeacherLoginRequestQt(const QString &user, const QString &password)
 {
     // 教师登录使用GET请求到drcom端点
-    QString urlWithParams = QString("http://10.255.0.19/drcom/login?callback=dr1003&DDDDD=%1@jzg&upass=%2&0MKKey=123456&R1=0&R3=0&R6=0&para=00&v6ip=&v=")
-                            .arg(user)
-                            .arg(password);
-    
-    QUrl url(urlWithParams);
+    QUrl url("http://10.255.0.19/drcom/login");
+    url.setQuery(buildLoginQuery(user, "jzg", password));
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader, "Mozilla/5.0");
     request.setTransferTimeout(12000); // 12秒超时，更快响应登录问题
@@ -887,7 +886,7 @@ void WiFiManager::sendTeacherLoginRequestQt(const QString &user, const QString &
     request.setRawHeader("Accept-Language", "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3");
     request.setRawHeader("Connection", "keep-alive");
     
-    qDebug() << "教师登录GET请求URL:" << urlWithParams;
+    qDebug() << "发送教师GET登录请求，账号:" << user;
     
     // 清理之前的登录请求
     if (m_loginReply) {
@@ -897,7 +896,7 @@ void WiFiManager::sendTeacherLoginRequestQt(const QString &user, const QString &
         m_loginReply = nullptr;
     }
     
-    qDebug() << "发送GET教师登录请求到:" << request.url().toString();
+    qDebug() << "发送GET教师登录请求到:" << request.url().toString(QUrl::RemoveQuery);
     m_loginReply = m_networkManager->get(request);  // 使用GET方法
     
     if (m_loginReply) {
@@ -1027,7 +1026,15 @@ void WiFiManager::onWifiSSIDProcessFinished(int exitCode, QProcess::ExitStatus e
                     emit wifiSSIDUpdated(ssid);
                     qDebug() << "通过PowerShell异步检测到当前WiFi SSID:" << ssid;
                     if (oldSSID != ssid) {
-                        m_detectedUserType = determineUserTypeBySSID(ssid);
+                        m_detectedUserType = determineEffectiveUserType(ssid);
+                        if (!oldSSID.isEmpty()) {
+                            m_lastLoginSuccess = QDateTime();
+                            if (m_isConnected) {
+                                m_isConnected = false;
+                                emit connectionStatusChanged(false);
+                            }
+                            QTimer::singleShot(0, this, &WiFiManager::checkConnection);
+                        }
                     }
                 }
             }
@@ -1059,7 +1066,15 @@ void WiFiManager::onWifiSSIDProcessFinished(int exitCode, QProcess::ExitStatus e
                             emit wifiSSIDUpdated(ssid);
                             qDebug() << "通过nmcli异步检测到当前WiFi SSID:" << ssid;
                             if (oldSSID != ssid) {
-                                m_detectedUserType = determineUserTypeBySSID(ssid);
+                                m_detectedUserType = determineEffectiveUserType(ssid);
+                                if (!oldSSID.isEmpty()) {
+                                    m_lastLoginSuccess = QDateTime();
+                                    if (m_isConnected) {
+                                        m_isConnected = false;
+                                        emit connectionStatusChanged(false);
+                                    }
+                                    QTimer::singleShot(0, this, &WiFiManager::checkConnection);
+                                }
                             }
                             break;
                         }
@@ -1095,7 +1110,15 @@ void WiFiManager::onWifiSSIDProcessFinished(int exitCode, QProcess::ExitStatus e
         
         // 如果SSID发生变化，更新用户类型
         if (oldSSID != newSSID) {
-            m_detectedUserType = determineUserTypeBySSID(newSSID);
+            m_detectedUserType = determineEffectiveUserType(newSSID);
+            if (!oldSSID.isEmpty()) {
+                m_lastLoginSuccess = QDateTime();
+                if (m_isConnected) {
+                    m_isConnected = false;
+                    emit connectionStatusChanged(false);
+                }
+                QTimer::singleShot(0, this, &WiFiManager::checkConnection);
+            }
         }
     } else {
         qDebug() << "未能异步检测到当前WiFi SSID";
@@ -1126,6 +1149,16 @@ QString WiFiManager::determineUserTypeBySSID(const QString &ssid)
         qDebug() << "检测到其他WiFi网络:" << ssid << "，默认使用学生登录";
         return "student";
     }
+}
+
+QString WiFiManager::determineEffectiveUserType(const QString &ssid)
+{
+    if (hasTeacherConfig()) {
+        qDebug() << "教师账号密码已配置，优先使用教师登录，忽略当前WiFi类型:" << ssid;
+        return "teacher";
+    }
+
+    return determineUserTypeBySSID(ssid);
 }
 
 void WiFiManager::handleLoginFailure(const QString &errorMessage)

@@ -51,6 +51,7 @@ public:
     QString getCurrentWifiSSID();  // 返回缓存的SSID（非阻塞）
     void updateWifiSSIDAsync();    // 异步更新SSID缓存
     QString determineUserTypeBySSID(const QString &ssid);
+    QString determineEffectiveUserType(const QString &ssid);
     
     // 发送登录请求
     void sendLoginRequest(const QString &user, const QString &password, const QString &server);

@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "app_config.h"
 #include <QApplication>
 #include <QDir>
 #include <QStandardPaths>
@@ -11,6 +12,8 @@
 #include <QStyle>
 #include <QTimer>
 #include <QDateTime>
+#include <QMetaType>
+#include <QProgressDialog>
 
 // MainWindow 实现
 MainWindow::MainWindow(QWidget *parent)
@@ -18,8 +21,11 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , m_trayIcon(nullptr)
     , m_trayMenu(nullptr)
+    , m_checkUpdateAction(nullptr)
     , m_configDialog(nullptr)
     , m_wifiManager(nullptr)
+    , m_updateManager(nullptr)
+    , m_updateProgressDialog(nullptr)
     , m_isFirstRun(false)
     , m_backgroundMode(false)
     , m_isConfigDialogOpen(false)
@@ -31,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle("AUST WiFi 自动重连工具");
     
     // 设置状态栏显示个人信息（Windows 11风格）
-    statusBar()->showMessage("信息安全23-1 王智杰 | AUST WiFi 自动重连工具 v3.0");
+    statusBar()->showMessage(QString("信息安全23-1 王智杰 | AUST WiFi 自动重连工具 v%1").arg(APP_VERSION));
     
     // 检查是否首次运行
     checkFirstRun();
@@ -49,6 +55,9 @@ MainWindow::MainWindow(QWidget *parent)
     
     // 创建配置对话框
     createConfigDialog();
+
+    // 创建自动更新管理器
+    createUpdateManager();
     
     // 连接UI按钮信号
     connect(ui->configButton, &QPushButton::clicked, this, &MainWindow::onShowConfig);
@@ -115,6 +124,13 @@ MainWindow::MainWindow(QWidget *parent)
         m_wifiManager->startAutoReconnect();
         qDebug() << "确保网络检测功能已启动，以支持配置界面的暂停功能";
     });
+
+    // 启动后静默检查更新；只有发现新版或出错且用户手动触发时才打扰用户
+    QTimer::singleShot(8000, [this]() {
+        if (m_updateManager) {
+            m_updateManager->checkForUpdates(false);
+        }
+    });
 }
 
 MainWindow::~MainWindow()
@@ -129,6 +145,16 @@ MainWindow::~MainWindow()
         m_wifiManager->deleteLater();
         m_wifiManager = nullptr;
     }
+
+    if (m_updateManager) {
+        qDebug() << "清理UpdateManager...";
+        disconnect(m_updateManager, nullptr, this, nullptr);
+        m_updateManager->cancelDownload();
+        m_updateManager->deleteLater();
+        m_updateManager = nullptr;
+    }
+
+    closeUpdateProgressDialog();
     
     // 清理托盘图标及其相关对象
     if (m_trayIcon) {
@@ -222,11 +248,13 @@ void MainWindow::createTrayIcon()
     m_trayMenu = new QMenu();
     
     m_showConfigAction = new QAction("配置", this);
+    m_checkUpdateAction = new QAction("检查更新", this);
     m_startAction = new QAction("开始自动重连", this);
     m_stopAction = new QAction("停止自动重连", this);
     m_quitAction = new QAction("退出", this);
     
     m_trayMenu->addAction(m_showConfigAction);
+    m_trayMenu->addAction(m_checkUpdateAction);
     m_trayMenu->addSeparator();
     m_trayMenu->addAction(m_startAction);
     m_trayMenu->addAction(m_stopAction);
@@ -239,6 +267,8 @@ void MainWindow::createTrayIcon()
             this, &MainWindow::onTrayIconActivated);
     connect(m_showConfigAction, &QAction::triggered, 
             this, &MainWindow::onShowConfig);
+    connect(m_checkUpdateAction, &QAction::triggered,
+            this, &MainWindow::onCheckUpdates);
     connect(m_startAction, &QAction::triggered, 
             this, &MainWindow::onToggleAutoReconnect);
     connect(m_stopAction, &QAction::triggered, 
@@ -252,6 +282,24 @@ void MainWindow::createTrayIcon()
 void MainWindow::createConfigDialog()
 {
     m_configDialog = new ConfigDialog(this);
+}
+
+void MainWindow::createUpdateManager()
+{
+    m_updateManager = new UpdateManager(this);
+
+    connect(m_updateManager, &UpdateManager::updateAvailable,
+            this, &MainWindow::onUpdateAvailable);
+    connect(m_updateManager, &UpdateManager::noUpdateAvailable,
+            this, &MainWindow::onNoUpdateAvailable);
+    connect(m_updateManager, &UpdateManager::updateCheckFailed,
+            this, &MainWindow::onUpdateCheckFailed);
+    connect(m_updateManager, &UpdateManager::downloadProgress,
+            this, &MainWindow::onUpdateDownloadProgress);
+    connect(m_updateManager, &UpdateManager::downloadFinished,
+            this, &MainWindow::onUpdateDownloadFinished);
+    connect(m_updateManager, &UpdateManager::updateFailed,
+            this, &MainWindow::onUpdateFailed);
 }
 
 void MainWindow::startBackgroundMode()
@@ -368,6 +416,147 @@ void MainWindow::updateToggleButton()
         ui->toggleButton->style()->unpolish(ui->toggleButton);
         ui->toggleButton->style()->polish(ui->toggleButton);
     }
+}
+
+void MainWindow::onCheckUpdates()
+{
+    if (!m_updateManager) {
+        QMessageBox::warning(this, "检查更新", "更新模块尚未初始化。");
+        return;
+    }
+
+    if (m_updateManager->isBusy()) {
+        QMessageBox::information(this, "检查更新", "已有更新任务正在进行，请稍后再试。");
+        return;
+    }
+
+    m_trayIcon->showMessage("AUST WiFi", "正在检查更新...", QSystemTrayIcon::Information, 1500);
+    m_updateManager->checkForUpdates(true);
+}
+
+void MainWindow::onUpdateAvailable(const UpdateInfo &info, bool manual)
+{
+    Q_UNUSED(manual);
+
+    QString message = QString("发现新版本：%1\n当前版本：%2\n")
+            .arg(info.version, QApplication::applicationVersion());
+    if (!info.publishedAt.isEmpty()) {
+        message += QString("发布时间：%1\n").arg(info.publishedAt);
+    }
+    if (info.size > 0) {
+        message += QString("安装包大小：%1 MB\n").arg(QString::number(info.size / 1024.0 / 1024.0, 'f', 1));
+    }
+    if (!info.notes.isEmpty()) {
+        message += "\n更新说明：\n" + info.notes + "\n";
+    }
+    if (info.force) {
+        message += "\n这是一个建议尽快安装的重要更新。";
+    }
+    message += "\n是否现在下载并安装？";
+
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "发现新版本",
+        message,
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::Yes
+    );
+
+    if (reply != QMessageBox::Yes) {
+        return;
+    }
+
+    closeUpdateProgressDialog();
+    m_updateProgressDialog = new QProgressDialog("正在下载更新...", "取消", 0, 100, this);
+    m_updateProgressDialog->setWindowTitle("下载更新");
+    m_updateProgressDialog->setWindowModality(Qt::WindowModal);
+    m_updateProgressDialog->setMinimumDuration(0);
+    connect(m_updateProgressDialog, &QProgressDialog::canceled, [this]() {
+        if (m_updateManager) {
+            m_updateManager->cancelDownload();
+        }
+    });
+    m_updateProgressDialog->show();
+
+    m_updateManager->downloadUpdate(info);
+}
+
+void MainWindow::onNoUpdateAvailable(const QString &currentVersion, const QString &latestVersion, bool manual)
+{
+    if (!manual) {
+        return;
+    }
+
+    QMessageBox::information(
+        this,
+        "检查更新",
+        QString("当前已是最新版本。\n当前版本：%1\n服务器版本：%2").arg(currentVersion, latestVersion)
+    );
+}
+
+void MainWindow::onUpdateCheckFailed(const QString &message, bool manual)
+{
+    if (!manual) {
+        return;
+    }
+
+    QMessageBox::warning(this, "检查更新失败", message);
+}
+
+void MainWindow::onUpdateDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
+{
+    if (!m_updateProgressDialog) {
+        return;
+    }
+
+    if (bytesTotal <= 0) {
+        m_updateProgressDialog->setRange(0, 0);
+        m_updateProgressDialog->setLabelText(QString("正在下载更新... 已下载 %1 KB").arg(bytesReceived / 1024));
+        return;
+    }
+
+    m_updateProgressDialog->setRange(0, 100);
+    const int percent = static_cast<int>((bytesReceived * 100) / bytesTotal);
+    m_updateProgressDialog->setValue(percent);
+    m_updateProgressDialog->setLabelText(
+        QString("正在下载更新... %1 / %2 MB")
+            .arg(QString::number(bytesReceived / 1024.0 / 1024.0, 'f', 1),
+                 QString::number(bytesTotal / 1024.0 / 1024.0, 'f', 1))
+    );
+}
+
+void MainWindow::onUpdateDownloadFinished(const QString &installerPath)
+{
+    closeUpdateProgressDialog();
+
+    QMessageBox::information(
+        this,
+        "更新已下载",
+        QString("更新安装包已下载并校验通过。\n\n%1\n\n点击确定后将启动安装程序，当前程序会自动退出。").arg(installerPath)
+    );
+
+    if (m_wifiManager) {
+        m_wifiManager->stopAutoReconnect();
+    }
+
+    if (!m_updateManager || !m_updateManager->launchInstaller()) {
+        QMessageBox::warning(this, "启动安装程序失败", "无法启动更新安装包，请手动运行下载的安装程序。");
+        return;
+    }
+
+    QTimer::singleShot(500, qApp, &QApplication::quit);
+}
+
+void MainWindow::onUpdateFailed(const QString &message)
+{
+    closeUpdateProgressDialog();
+
+    if (message.contains("Operation canceled", Qt::CaseInsensitive) ||
+        message.contains("取消", Qt::CaseInsensitive)) {
+        return;
+    }
+
+    QMessageBox::warning(this, "更新失败", message);
 }
 
 void MainWindow::onQuit()
@@ -502,6 +691,17 @@ void MainWindow::showUserFriendlyError(const QString &title, const QString &mess
     }
 }
 
+void MainWindow::closeUpdateProgressDialog()
+{
+    if (!m_updateProgressDialog) {
+        return;
+    }
+
+    m_updateProgressDialog->hide();
+    m_updateProgressDialog->deleteLater();
+    m_updateProgressDialog = nullptr;
+}
+
 void MainWindow::updateWifiInfo()
 {
     if (!m_wifiManager) {
@@ -518,8 +718,8 @@ void MainWindow::updateWifiInfo()
         ui->wifiNameValue->setText(ssid);
     }
     
-    // 获取用户类型
-    QString userType = m_wifiManager->determineUserTypeBySSID(ssid);
+    // 获取实际将用于登录的用户类型
+    QString userType = m_wifiManager->determineEffectiveUserType(ssid);
     if (userType == "student") {
         ui->userTypeValue->setText("学生");
     } else if (userType == "teacher") {
@@ -535,9 +735,9 @@ void MainWindow::updateWifiInfo()
     
     // 尝试多种方式读取时间
     if (lastLoginVariant.isValid()) {
-        if (lastLoginVariant.type() == QVariant::DateTime) {
+        if (lastLoginVariant.typeId() == QMetaType::QDateTime) {
             lastLogin = lastLoginVariant.toDateTime();
-        } else if (lastLoginVariant.type() == QVariant::String) {
+        } else if (lastLoginVariant.typeId() == QMetaType::QString) {
             // 如果是字符串格式，尝试解析
             QString timeStr = lastLoginVariant.toString();
             lastLogin = QDateTime::fromString(timeStr, Qt::ISODate);

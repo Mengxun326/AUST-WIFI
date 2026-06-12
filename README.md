@@ -4,12 +4,12 @@
 
 *开发者：信息安全23-1 王智杰*
 
-[![Version](https://img.shields.io/badge/Version-v3.0.0-brightgreen.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
+[![Version](https://img.shields.io/badge/Version-v3.0.1-brightgreen.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
 [![License](https://img.shields.io/badge/License-Custom-blue.svg)](./LICENSE)
 [![Qt](https://img.shields.io/badge/Qt-6.7+-green.svg)](https://www.qt.io/)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20Linux-lightgrey.svg)](https://www.microsoft.com/windows/)
-[![下载](https://img.shields.io/badge/下载-V3.0-blue.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
+[![下载](https://img.shields.io/badge/下载-V3.0.1-blue.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
 [![Star](https://img.shields.io/badge/GitHub-⭐Star-yellow.svg)](https://github.com/Mengxun326/AUST-WIFI)
 
 ## 📸 项目预览
@@ -40,8 +40,8 @@
 
 ### 🔧 双配置智能管理
 - **双账号系统** - 同时保存学生和教师配置，智能自动切换
-- **WiFi 智能检测** - 根据网络 SSID 自动识别用户类型并选择对应配置
-- **零感知体验** - AUST_Student → 学生登录，AUST_Faculty → 教师登录
+- **教师账号优先** - 填写教师账号密码后，无论当前 WiFi 名称是什么，都优先使用教师登录
+- **WiFi 智能检测** - 未填写教师账号时，根据网络 SSID 自动识别用户类型并选择对应配置
 - **中文支持** - 完美支持中文 WiFi 名称显示
 
 ### 🚀 企业级稳定性
@@ -208,8 +208,8 @@ make
 
 #### 系统集成
 - **Windows API** - 开机自启动设置
-- **DPAPI** - 密码安全加密存储
-- **注册表** - 配置信息存储
+- **QSettings** - 本地配置持久化
+- **注册表** - Windows 下配置信息存储
 - **Linux 网络工具** - iwgetid、nmcli 支持
 
 ### 📁 项目文件结构
@@ -221,6 +221,8 @@ AUST_WIFI/
 ├── wifimanager.h/cpp        # 🌐 WiFi管理核心逻辑
 ├── config_dialog.h/cpp     # ⚙️ 配置对话框逻辑
 ├── config_dialog.ui         # 🎨 配置对话框界面
+├── updatemanager.h/cpp      # 🔄 自动更新检查、下载和校验
+├── app_config.h             # 🏷️ 版本号和更新地址配置
 ├── resources.qrc            # 📦 资源文件集合
 ├── AUST_WIFI.pro           # ⚙️ Qt项目配置文件
 ├── build.bat               # 🔨 Windows一键编译脚本
@@ -229,6 +231,7 @@ AUST_WIFI/
 ├── icons/                  # 🎭 图标资源文件夹
 │   └── app.ico             # 应用程序图标
 ├── docs/                   # 📚 文档目录
+│   ├── AUTO_UPDATE.md      # 自动更新发布流程
 │   ├── LINUX_BUILD.md      # Linux编译指南
 │   └── releases/           # 版本发布说明
 │       ├── RELEASE_V1.0.md
@@ -285,9 +288,10 @@ graph TD
 | **教师** | GET | `/drcom/login` | `DDDDD={工号}@jzg` | HTTP 重定向 |
 
 ### 🔐 安全机制
-- **密码加密**：使用 Windows DPAPI (Data Protection API) 加密存储
-- **本地存储**：所有配置信息仅保存在本地注册表中
-- **HTTPS 支持**：支持加密的网络传输协议
+- **本地存储**：账号配置仅保存在本机 `QSettings` 中
+- **敏感日志保护**：登录请求日志不会输出密码或完整登录 URL
+- **更新安全**：自动更新下载后会校验安装包 SHA-256
+- **传输说明**：校园网认证接口为校内 HTTP；自动更新使用 HTTPS
 - **无数据收集**：程序不收集或上传任何用户隐私信息
 
 ## 🐛 故障排除
@@ -403,8 +407,8 @@ windeployqt.exe --release AUST_WIFI.exe
 # Linux: 创建 .deb 或 .rpm 包
 
 # 4. 发布到 GitHub Releases
-git tag v3.0.0
-git push origin v3.0.0
+git tag v3.0.1
+git push origin v3.0.1
 ```
 
 ## 📄 许可证
@@ -444,6 +448,7 @@ git push origin v3.0.0
 - [V3.0 更新说明](./docs/releases/RELEASE_V3.0.md)
 - [V2.0 更新说明](./docs/releases/RELEASE_V2.0.md)
 - [V1.0 更新说明](./docs/releases/RELEASE_V1.0.md)
+- [自动更新发布流程](./docs/AUTO_UPDATE.md)
 
 ---
 

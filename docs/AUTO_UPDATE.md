@@ -1,0 +1,148 @@
+# AUST WiFi 自动更新发布流程
+
+当前方案采用“应用内检查更新 + 下载新版 Inno Setup 安装包 + SHA-256 校验 + 启动安装程序”的方式。应用启动 8 秒后会静默检查一次更新，用户也可以在托盘菜单中点击“检查更新”。
+
+## 服务器目录
+
+当前站点会把 `meng-xun.top` 跳转到 `www.meng-xun.top`，因此更新地址统一使用 `www.meng-xun.top`。在服务器上准备一个 HTTPS 静态目录：
+
+```text
+https://www.meng-xun.top/aust-wifi/update.json
+https://www.meng-xun.top/aust-wifi/releases/AUST-WIFI-Setup-3.1.0.exe
+```
+
+如果使用 Nginx，可以把服务器上的某个目录映射到 `/aust-wifi/`。客户端会拒绝非 HTTPS 的安装包地址。
+
+Nginx 示例：
+
+```nginx
+location ^~ /aust-wifi/ {
+    alias /var/www/aust-wifi/;
+    default_type application/octet-stream;
+    add_header Cache-Control "no-cache";
+}
+
+location = /aust-wifi/update.json {
+    alias /var/www/aust-wifi/update.json;
+    default_type application/json;
+    add_header Cache-Control "no-cache";
+}
+```
+
+对应服务器文件路径：
+
+```text
+/var/www/aust-wifi/update.json
+/var/www/aust-wifi/releases/AUST-WIFI-Setup-3.1.0.exe
+```
+
+## 更新清单
+
+`update.json` 示例：
+
+```json
+{
+  "latest": "3.1.0",
+  "min_supported": "3.0.0",
+  "url": "https://www.meng-xun.top/aust-wifi/releases/AUST-WIFI-Setup-3.1.0.exe",
+  "sha256": "替换为安装包的 SHA-256",
+  "size": 10485760,
+  "published_at": "2026-06-12",
+  "notes": "修复自动重连稳定性，优化更新流程。",
+  "force": false
+}
+```
+
+字段说明：
+
+- `latest`：服务器最新版本，必须大于程序内的 `APP_VERSION` 才会提示更新。
+- `min_supported`：最低支持版本，当前主要用于后续兼容策略预留。
+- `url`：安装包 HTTPS 地址。
+- `sha256`：安装包 SHA-256，必须填写，否则客户端不会下载。
+- `size`：安装包字节数，用于显示下载大小。
+- `notes`：更新说明。
+- `force`：重要更新标记，当前会在提示文案中强调，但仍由用户确认安装。
+
+建议使用无 BOM 的 UTF-8 保存 `update.json`。项目发布脚本会自动生成无 BOM 文件。
+
+## 一键发布
+
+推荐使用项目内的发布脚本：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -Notes "填写本次更新说明。"
+```
+
+脚本会完成 Qt Release 编译、`windeployqt`、Inno Setup 打包、SHA-256 计算，并在 `installer\update.json` 中生成可直接上传的更新清单。
+
+如果 Qt 或 Inno Setup 安装目录不同，可以传入参数覆盖：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 `
+  -QtBin "E:\QT\6.11.1\mingw_64\bin" `
+  -MingwBin "E:\QT\Tools\mingw1310_64\bin" `
+  -InnoCompiler "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+  -Notes "修复自动重连稳定性。"
+```
+
+生成后上传：
+
+```text
+installer\AUST-WIFI-Setup-版本号.exe -> /aust-wifi/releases/AUST-WIFI-Setup-版本号.exe
+installer\update.json -> /aust-wifi/update.json
+```
+
+## 手工发布
+
+如果不使用脚本，可以按下面步骤执行：
+
+1. 修改 `app_config.h` 中的 `APP_VERSION`，例如 `3.1.0`。
+2. 使用 Qt Creator 的 Release 配置构建项目。
+3. 创建部署目录并复制可执行文件。
+
+```powershell
+New-Item -ItemType Directory -Force dist\AUST_WIFI
+Copy-Item build\...\release\AUST_WIFI.exe dist\AUST_WIFI\
+```
+
+4. 运行 `windeployqt`。
+
+```powershell
+windeployqt --release --compiler-runtime dist\AUST_WIFI\AUST_WIFI.exe
+```
+
+5. 使用 Inno Setup 编译安装包。
+
+```powershell
+iscc setup.iss
+```
+
+6. 计算 SHA-256。
+
+```powershell
+Get-FileHash installer\AUST-WIFI-Setup-3.1.0.exe -Algorithm SHA256
+```
+
+7. 上传安装包到服务器的 `aust-wifi/releases/` 目录，并更新 `update.json`。
+
+## 版本号同步
+
+每次发布至少同步这些位置：
+
+- `app_config.h` 中的 `APP_VERSION`
+- `setup.iss` 中的 `MyAppVersion`
+- `update.json` 中的 `latest`
+- 安装包文件名中的版本号
+
+如果四处版本不一致，客户端可能无法正确判断更新。
+
+## 上线检查
+
+发布后确认下面两个地址能在浏览器中访问：
+
+```text
+https://www.meng-xun.top/aust-wifi/update.json
+https://www.meng-xun.top/aust-wifi/releases/AUST-WIFI-Setup-版本号.exe
+```
+
+然后在旧版本客户端中点击托盘菜单的“检查更新”。如果 `latest` 大于旧客户端的 `APP_VERSION`，应该弹出更新提示。

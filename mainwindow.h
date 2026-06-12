@@ -11,6 +11,9 @@
 #include <QTimer>
 #include "wifimanager.h"
 #include "config_dialog.h"
+#include "updatemanager.h"
+
+class QProgressDialog;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -39,24 +42,36 @@ private slots:
     void onLoginResult(bool success, const QString &message);
     void showUserFriendlyError(const QString &title, const QString &message);
     void setupAutoStart();
+    void onCheckUpdates();
+    void onUpdateAvailable(const UpdateInfo &info, bool manual);
+    void onNoUpdateAvailable(const QString &currentVersion, const QString &latestVersion, bool manual);
+    void onUpdateCheckFailed(const QString &message, bool manual);
+    void onUpdateDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
+    void onUpdateDownloadFinished(const QString &installerPath);
+    void onUpdateFailed(const QString &message);
 
 private:
     void createTrayIcon();
     void createConfigDialog();
+    void createUpdateManager();
     void checkFirstRun();
     void startBackgroundMode();
     void updateWifiInfo();
+    void closeUpdateProgressDialog();
 
     Ui::MainWindow *ui;
     QSystemTrayIcon *m_trayIcon;
     QMenu *m_trayMenu;
     QAction *m_showConfigAction;
+    QAction *m_checkUpdateAction;
     QAction *m_startAction;
     QAction *m_stopAction;
     QAction *m_quitAction;
     
     ConfigDialog *m_configDialog;
     WiFiManager *m_wifiManager;
+    UpdateManager *m_updateManager;
+    QProgressDialog *m_updateProgressDialog;
     
     bool m_isFirstRun;
     bool m_backgroundMode;

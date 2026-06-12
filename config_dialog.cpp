@@ -117,7 +117,7 @@ void ConfigDialog::onSaveClicked()
     if (hasTeacherConfig) {
         message += "✓ 教师配置已保存\n";
     }
-    message += "\n系统将根据WiFi网络自动选择对应配置进行登录。";
+    message += "\n系统将优先使用教师账号登录；未填写教师账号密码时，再根据WiFi网络选择对应配置。";
     
     QMessageBox::information(this, "保存成功", message);
     accept();

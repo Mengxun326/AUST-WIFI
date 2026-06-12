@@ -279,7 +279,7 @@ if %errorlevel% equ 0 (
         echo    ✓ 系统托盘后台运行
         echo    ✓ 开机自启动支持
         echo    ✓ 多运营商支持
-        echo    ✓ 安全密码加密存储
+        echo    ✓ 本地账号配置存储
         echo.
         
         set /p run_now="🤔 是否立即运行程序？(Y/N): "
