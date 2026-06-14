@@ -4,12 +4,12 @@
 
 *开发者：信息安全23-1 王智杰*
 
-[![Version](https://img.shields.io/badge/Version-v3.0.1-brightgreen.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
+[![Version](https://img.shields.io/badge/Version-v4.0.0-brightgreen.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
 [![License](https://img.shields.io/badge/License-Custom-blue.svg)](./LICENSE)
 [![Qt](https://img.shields.io/badge/Qt-6.7+-green.svg)](https://www.qt.io/)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20Linux-lightgrey.svg)](https://www.microsoft.com/windows/)
-[![下载](https://img.shields.io/badge/下载-V3.0.1-blue.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
+[![下载](https://img.shields.io/badge/下载-V4.0.0-blue.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
 [![Star](https://img.shields.io/badge/GitHub-⭐Star-yellow.svg)](https://github.com/Mengxun326/AUST-WIFI)
 
 ## 📸 项目预览
@@ -17,6 +17,19 @@
 ![AUST WiFi Logo](./icons/app.ico)
 
 **专为安徽理工大学校园网环境打造的智能重连解决方案，支持学生和教师用户**
+
+## 🌟 V4.0 核心特性
+
+### 🔐 可信更新与账号安全
+- **签名更新清单** - V4 客户端会验证 `update.json` 中的 RSA-SHA256 签名，拒绝未签名或被篡改的更新清单
+- **SHA-256 安装包校验** - 下载完成后继续校验安装包哈希，避免损坏或替换
+- **Windows DPAPI 密码保护** - Windows 下使用当前系统用户的 DPAPI 加密保存校园网密码
+- **旧配置自动迁移** - 读取旧版明文密码后自动迁移到 DPAPI 存储
+
+### 🧭 状态机与诊断能力
+- **连接状态机** - 明确区分检测网络、检测 WiFi、登录、冷却等待、配置中等状态
+- **一键诊断报告** - 托盘菜单可复制脱敏诊断信息，便于排查网络和配置问题
+- **统一版本入口** - 使用 `APP_VERSION.txt` 作为发布版本来源，发布脚本自动同步代码和安装脚本
 
 ## 🌟 V3.0 核心特性
 
@@ -223,11 +236,17 @@ AUST_WIFI/
 ├── config_dialog.ui         # 🎨 配置对话框界面
 ├── updatemanager.h/cpp      # 🔄 自动更新检查、下载和校验
 ├── app_config.h             # 🏷️ 版本号和更新地址配置
+├── APP_VERSION.txt          # 🏷️ 发布版本号来源
+├── credentialstore.h/cpp    # 🔐 密码安全存储
+├── updatesignature.h/cpp    # 🔏 更新清单签名校验
 ├── resources.qrc            # 📦 资源文件集合
 ├── AUST_WIFI.pro           # ⚙️ Qt项目配置文件
 ├── build.bat               # 🔨 Windows一键编译脚本
 ├── build.sh                # 🔨 Linux一键编译脚本
 ├── setup.iss               # 📦 Inno Setup安装脚本
+├── scripts/                # 🚀 发布辅助脚本
+│   ├── release-windows.ps1
+│   └── new-update-signing-key.ps1
 ├── icons/                  # 🎭 图标资源文件夹
 │   └── app.ico             # 应用程序图标
 ├── docs/                   # 📚 文档目录
@@ -391,24 +410,12 @@ make check
 
 ### 📦 发布流程
 ```bash
-# 1. 编译发布版本
-qmake CONFIG+=release
-make
+# 生成 Windows 安装包和带签名的 update.json
+powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -Notes "填写本次更新说明。"
 
-# 2. 部署依赖
-# Windows:
-windeployqt.exe --release AUST_WIFI.exe
-
-# Linux:
-# 确保所有 Qt 依赖库已安装
-
-# 3. 创建安装包
-# Windows: iscc setup.iss
-# Linux: 创建 .deb 或 .rpm 包
-
-# 4. 发布到 GitHub Releases
-git tag v3.0.1
-git push origin v3.0.1
+# 发布标签示例
+git tag v4.0.0
+git push origin v4.0.0
 ```
 
 ## 📄 许可证

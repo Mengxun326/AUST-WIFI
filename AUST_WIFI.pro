@@ -15,6 +15,7 @@ DEFINES += QT_NO_DEBUG_OUTPUT QT_NO_INFO_OUTPUT
 win32 {
     CONFIG += windows
     CONFIG -= console
+    LIBS += -lcrypt32 -ladvapi32
 
     # 应用程序图标（仅Windows）
     RC_ICONS = icons/app.ico
@@ -37,14 +38,18 @@ SOURCES += \
     mainwindow.cpp \
     wifimanager.cpp \
     config_dialog.cpp \
-    updatemanager.cpp
+    credentialstore.cpp \
+    updatemanager.cpp \
+    updatesignature.cpp
 
 HEADERS += \
     app_config.h \
     mainwindow.h \
     wifimanager.h \
     config_dialog.h \
-    updatemanager.h
+    credentialstore.h \
+    updatemanager.h \
+    updatesignature.h
 
 FORMS += \
     mainwindow.ui \

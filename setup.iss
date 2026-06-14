@@ -5,7 +5,7 @@
 #define MyAppName "AUST WiFi 自动重连工具"
 #endif
 #ifndef MyAppVersion
-#define MyAppVersion "3.0.1"
+#define MyAppVersion "4.0.0"
 #endif
 #ifndef MyAppPublisher
 #define MyAppPublisher "王智杰"

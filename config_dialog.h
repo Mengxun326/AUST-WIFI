@@ -20,7 +20,7 @@ public:
     ~ConfigDialog();
     
     void loadConfig();
-    void saveConfig();
+    bool saveConfig();
 
 private slots:
     void onSaveClicked();
@@ -33,4 +33,4 @@ private:
     QSettings *m_settings;
 };
 
-#endif // CONFIG_DIALOG_H 
+#endif // CONFIG_DIALOG_H

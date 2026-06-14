@@ -1,5 +1,6 @@
 #include "config_dialog.h"
 #include "ui_config_dialog.h"
+#include "credentialstore.h"
 
 ConfigDialog::ConfigDialog(QWidget *parent)
     : QDialog(parent)
@@ -35,9 +36,13 @@ void ConfigDialog::setupComboBoxData()
 
 void ConfigDialog::loadConfig()
 {
+    CredentialStore credentials(m_settings);
+    credentials.migrateLegacyPassword("student");
+    credentials.migrateLegacyPassword("teacher");
+
     // 加载学生配置
     ui->studentUserEdit->setText(m_settings->value("student/user").toString());
-    ui->studentPasswordEdit->setText(m_settings->value("student/password").toString());
+    ui->studentPasswordEdit->setText(credentials.password("student"));
     
     QString studentServer = m_settings->value("student/server").toString();
     for (int i = 0; i < ui->studentServerCombo->count(); ++i) {
@@ -49,29 +54,38 @@ void ConfigDialog::loadConfig()
     
     // 加载教师配置
     ui->teacherUserEdit->setText(m_settings->value("teacher/user").toString());
-    ui->teacherPasswordEdit->setText(m_settings->value("teacher/password").toString());
+    ui->teacherPasswordEdit->setText(credentials.password("teacher"));
     
     // 加载公共设置
     ui->autoStartCheck->setChecked(m_settings->value("autoStart", false).toBool());
     ui->minimizeToTrayCheck->setChecked(m_settings->value("minimizeToTray", true).toBool());
 }
 
-void ConfigDialog::saveConfig()
+bool ConfigDialog::saveConfig()
 {
+    CredentialStore credentials(m_settings);
+
     // 保存学生配置
     m_settings->setValue("student/user", ui->studentUserEdit->text());
-    m_settings->setValue("student/password", ui->studentPasswordEdit->text());
+    if (!credentials.setPassword("student", ui->studentPasswordEdit->text())) {
+        QMessageBox::critical(this, "保存失败", "学生账号密码无法安全保存，请检查系统权限。");
+        return false;
+    }
     m_settings->setValue("student/server", ui->studentServerCombo->currentData().toString());
     
     // 保存教师配置
     m_settings->setValue("teacher/user", ui->teacherUserEdit->text());
-    m_settings->setValue("teacher/password", ui->teacherPasswordEdit->text());
+    if (!credentials.setPassword("teacher", ui->teacherPasswordEdit->text())) {
+        QMessageBox::critical(this, "保存失败", "教师账号密码无法安全保存，请检查系统权限。");
+        return false;
+    }
     m_settings->setValue("teacher/server", "jzg");  // 教师固定使用jzg
     
     // 保存公共设置
     m_settings->setValue("autoStart", ui->autoStartCheck->isChecked());
     m_settings->setValue("minimizeToTray", ui->minimizeToTrayCheck->isChecked());
     m_settings->sync();
+    return true;
 }
 
 void ConfigDialog::onSaveClicked()
@@ -108,7 +122,9 @@ void ConfigDialog::onSaveClicked()
         }
     }
     
-    saveConfig();
+    if (!saveConfig()) {
+        return;
+    }
     
     QString message = "配置保存成功！\n";
     if (hasStudentConfig) {

@@ -1,5 +1,6 @@
 #include "updatemanager.h"
 #include "app_config.h"
+#include "updatesignature.h"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -212,7 +213,41 @@ UpdateInfo UpdateManager::parseManifest(const QByteArray &data, QString *errorMe
         return {};
     }
 
-    const QJsonObject object = document.object();
+    QJsonObject object = document.object();
+    const QString payloadBase64 = object.value("payload").toString().trimmed();
+    const QString signatureBase64 = object.value("signature").toString().trimmed();
+
+#if APP_REQUIRE_SIGNED_MANIFEST
+    if (payloadBase64.isEmpty() || signatureBase64.isEmpty()) {
+        if (errorMessage) {
+            *errorMessage = "更新清单未签名，已拒绝本次更新。";
+        }
+        return {};
+    }
+#endif
+
+    if (!payloadBase64.isEmpty() || !signatureBase64.isEmpty()) {
+        const QByteArray payload = QByteArray::fromBase64(payloadBase64.toLatin1());
+        const QByteArray signature = QByteArray::fromBase64(signatureBase64.toLatin1());
+        QString signatureError;
+        if (!UpdateSignature::verifyPayload(payload, signature, &signatureError)) {
+            if (errorMessage) {
+                *errorMessage = signatureError;
+            }
+            return {};
+        }
+
+        QJsonParseError payloadError;
+        const QJsonDocument payloadDocument = QJsonDocument::fromJson(payload, &payloadError);
+        if (payloadError.error != QJsonParseError::NoError || !payloadDocument.isObject()) {
+            if (errorMessage) {
+                *errorMessage = QString("更新清单签名 payload 格式错误：%1").arg(payloadError.errorString());
+            }
+            return {};
+        }
+        object = payloadDocument.object();
+    }
+
     UpdateInfo info;
     info.version = object.value("latest").toString(object.value("version").toString()).trimmed();
     info.minSupportedVersion = object.value("min_supported").toString().trimmed();

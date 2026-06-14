@@ -14,6 +14,7 @@
 #include <QDateTime>
 #include <QMetaType>
 #include <QProgressDialog>
+#include <QClipboard>
 
 // MainWindow 实现
 MainWindow::MainWindow(QWidget *parent)
@@ -21,7 +22,12 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , m_trayIcon(nullptr)
     , m_trayMenu(nullptr)
+    , m_showConfigAction(nullptr)
     , m_checkUpdateAction(nullptr)
+    , m_diagnosticsAction(nullptr)
+    , m_startAction(nullptr)
+    , m_stopAction(nullptr)
+    , m_quitAction(nullptr)
     , m_configDialog(nullptr)
     , m_wifiManager(nullptr)
     , m_updateManager(nullptr)
@@ -249,12 +255,14 @@ void MainWindow::createTrayIcon()
     
     m_showConfigAction = new QAction("配置", this);
     m_checkUpdateAction = new QAction("检查更新", this);
+    m_diagnosticsAction = new QAction("复制诊断信息", this);
     m_startAction = new QAction("开始自动重连", this);
     m_stopAction = new QAction("停止自动重连", this);
     m_quitAction = new QAction("退出", this);
     
     m_trayMenu->addAction(m_showConfigAction);
     m_trayMenu->addAction(m_checkUpdateAction);
+    m_trayMenu->addAction(m_diagnosticsAction);
     m_trayMenu->addSeparator();
     m_trayMenu->addAction(m_startAction);
     m_trayMenu->addAction(m_stopAction);
@@ -269,6 +277,8 @@ void MainWindow::createTrayIcon()
             this, &MainWindow::onShowConfig);
     connect(m_checkUpdateAction, &QAction::triggered,
             this, &MainWindow::onCheckUpdates);
+    connect(m_diagnosticsAction, &QAction::triggered,
+            this, &MainWindow::onCopyDiagnostics);
     connect(m_startAction, &QAction::triggered, 
             this, &MainWindow::onToggleAutoReconnect);
     connect(m_stopAction, &QAction::triggered, 
@@ -399,6 +409,24 @@ void MainWindow::onToggleAutoReconnect()
                                QSystemTrayIcon::Information, 2000);
     }
     updateToggleButton();
+}
+
+void MainWindow::onCopyDiagnostics()
+{
+    if (!m_wifiManager) {
+        QMessageBox::warning(this, "诊断信息", "WiFi 管理模块尚未初始化。");
+        return;
+    }
+
+    const QString report = m_wifiManager->diagnosticReport();
+    QApplication::clipboard()->setText(report);
+
+    if (m_trayIcon) {
+        m_trayIcon->showMessage("AUST WiFi", "诊断信息已复制到剪贴板",
+                                QSystemTrayIcon::Information, 2000);
+    } else {
+        QMessageBox::information(this, "诊断信息", "诊断信息已复制到剪贴板。");
+    }
 }
 
 void MainWindow::updateToggleButton()

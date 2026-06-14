@@ -1,10 +1,13 @@
 #include "wifimanager.h"
+#include "credentialstore.h"
+#include "app_config.h"
 #include <QApplication>
 #include <QDir>
 #include <QStandardPaths>
 #include <QThread>
 #include <QEventLoop>
 #include <QDebug>
+#include <QTextStream>
 #include <QRegularExpression>
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -46,9 +49,14 @@ WiFiManager::WiFiManager(QObject *parent)
     , m_loginRetryCount(0)
     , m_isConfiguring(false)
     , m_lastLoginSuccess()
+    , m_connectionState(ConnectionState::Idle)
 {
     // 初始化设置
     m_settings = new QSettings("AUST_WIFI", "Config", this);
+    CredentialStore credentials(m_settings);
+    credentials.migrateLegacyPassword("");
+    credentials.migrateLegacyPassword("student");
+    credentials.migrateLegacyPassword("teacher");
     
     // 初始化网络管理器
     m_networkManager = new QNetworkAccessManager(this);
@@ -121,8 +129,9 @@ WiFiManager::~WiFiManager()
 
 void WiFiManager::saveConfig(const QString &user, const QString &password, const QString &server)
 {
+    CredentialStore credentials(m_settings);
     m_settings->setValue("user", user);
-    m_settings->setValue("password", password);
+    credentials.setPassword("", password);
     m_settings->setValue("server", server);
     m_settings->sync();
 }
@@ -134,7 +143,8 @@ bool WiFiManager::loadConfig(QString &user, QString &password, QString &server)
     }
     
     user = m_settings->value("user").toString();
-    password = m_settings->value("password").toString();
+    CredentialStore credentials(m_settings);
+    password = credentials.password("");
     server = m_settings->value("server").toString();
     
     return !user.isEmpty() && !password.isEmpty() && !server.isEmpty();
@@ -147,7 +157,8 @@ bool WiFiManager::loadConfig(QString &user, QString &password, QString &server, 
     }
     
     user = m_settings->value("user").toString();
-    password = m_settings->value("password").toString();
+    CredentialStore credentials(m_settings);
+    password = credentials.password("");
     server = m_settings->value("server").toString();
     userType = m_settings->value("userType", "student").toString();
     
@@ -156,16 +167,18 @@ bool WiFiManager::loadConfig(QString &user, QString &password, QString &server, 
 
 bool WiFiManager::hasConfig()
 {
-    return m_settings->contains("user") && 
-           m_settings->contains("password") && 
+    CredentialStore credentials(m_settings);
+    return m_settings->contains("user") &&
+           credentials.hasPassword("") &&
            m_settings->contains("server");
 }
 
 // 双配置管理实现
 void WiFiManager::saveStudentConfig(const QString &user, const QString &password, const QString &server)
 {
+    CredentialStore credentials(m_settings);
     m_settings->setValue("student/user", user);
-    m_settings->setValue("student/password", password);
+    credentials.setPassword("student", password);
     m_settings->setValue("student/server", server);
     m_settings->sync();
     qDebug() << "学生配置已保存：" << user << "@" << server;
@@ -173,8 +186,9 @@ void WiFiManager::saveStudentConfig(const QString &user, const QString &password
 
 void WiFiManager::saveTeacherConfig(const QString &user, const QString &password)
 {
+    CredentialStore credentials(m_settings);
     m_settings->setValue("teacher/user", user);
-    m_settings->setValue("teacher/password", password);
+    credentials.setPassword("teacher", password);
     m_settings->setValue("teacher/server", "jzg");  // 教师固定使用jzg
     m_settings->sync();
     qDebug() << "教师配置已保存：" << user << "@jzg";
@@ -187,7 +201,8 @@ bool WiFiManager::loadStudentConfig(QString &user, QString &password, QString &s
     }
     
     user = m_settings->value("student/user").toString();
-    password = m_settings->value("student/password").toString();
+    CredentialStore credentials(m_settings);
+    password = credentials.password("student");
     server = m_settings->value("student/server").toString();
     
     qDebug() << "加载学生配置：" << user << "@" << server;
@@ -201,7 +216,8 @@ bool WiFiManager::loadTeacherConfig(QString &user, QString &password)
     }
     
     user = m_settings->value("teacher/user").toString();
-    password = m_settings->value("teacher/password").toString();
+    CredentialStore credentials(m_settings);
+    password = credentials.password("teacher");
     
     qDebug() << "加载教师配置：" << user << "@jzg";
     return !user.isEmpty() && !password.isEmpty();
@@ -209,15 +225,17 @@ bool WiFiManager::loadTeacherConfig(QString &user, QString &password)
 
 bool WiFiManager::hasStudentConfig()
 {
+    CredentialStore credentials(m_settings);
     return !m_settings->value("student/user").toString().trimmed().isEmpty() &&
-           !m_settings->value("student/password").toString().isEmpty() &&
+           credentials.hasPassword("student") &&
            !m_settings->value("student/server").toString().trimmed().isEmpty();
 }
 
 bool WiFiManager::hasTeacherConfig()
 {
+    CredentialStore credentials(m_settings);
     return !m_settings->value("teacher/user").toString().trimmed().isEmpty() &&
-           !m_settings->value("teacher/password").toString().isEmpty();
+           credentials.hasPassword("teacher");
 }
 
 bool WiFiManager::loadConfigByUserType(const QString &userType, QString &user, QString &password, QString &server)
@@ -240,6 +258,7 @@ void WiFiManager::pauseNetworkOperations()
 {
     qDebug() << "暂停网络操作 - 用户正在修改配置";
     m_isConfiguring = true;
+    setConnectionState(ConnectionState::Configuring);
     
     // 停止定时器
     if (m_checkTimer && m_checkTimer->isActive()) {
@@ -277,6 +296,7 @@ void WiFiManager::resumeNetworkOperations()
 {
     qDebug() << "恢复网络操作 - 配置修改完成";
     m_isConfiguring = false;
+    setConnectionState(m_isConnected ? ConnectionState::Connected : ConnectionState::Idle);
     
     // 重新启动网络检测
     if (m_checkTimer) {
@@ -362,6 +382,7 @@ void WiFiManager::printCurrentStatus()
     qDebug() << "- 当前网络检测请求:" << (m_currentReply ? "存在" : "为空");
     qDebug() << "- 当前登录请求:" << (m_loginReply ? "存在" : "为空");
     qDebug() << "- 网络连接状态:" << m_isConnected;
+    qDebug() << "- 连接状态机:" << connectionStateText();
     qDebug() << "- 当前WiFi SSID:" << m_currentSSID;
     qDebug() << "- 检测到的用户类型:" << m_detectedUserType;
     qDebug() << "- 学生配置:" << (hasStudentConfig() ? "已配置" : "未配置");
@@ -372,6 +393,64 @@ void WiFiManager::printCurrentStatus()
 bool WiFiManager::isTimerActive() const
 {
     return m_checkTimer && m_checkTimer->isActive();
+}
+
+WiFiManager::ConnectionState WiFiManager::connectionState() const
+{
+    return m_connectionState;
+}
+
+QString WiFiManager::connectionStateText() const
+{
+    switch (m_connectionState) {
+    case ConnectionState::Idle:
+        return "空闲";
+    case ConnectionState::CheckingNetwork:
+        return "检测网络";
+    case ConnectionState::DetectingSSID:
+        return "检测WiFi";
+    case ConnectionState::LoggingIn:
+        return "正在登录";
+    case ConnectionState::Connected:
+        return "已连接";
+    case ConnectionState::Disconnected:
+        return "未连接";
+    case ConnectionState::CoolingDown:
+        return "冷却等待";
+    case ConnectionState::PausedByUser:
+        return "用户暂停";
+    case ConnectionState::Configuring:
+        return "配置中";
+    }
+    return "未知";
+}
+
+QString WiFiManager::diagnosticReport()
+{
+    QString report;
+    QTextStream out(&report);
+    out << "AUST WiFi 诊断报告\n";
+    out << "生成时间: " << QDateTime::currentDateTime().toString(Qt::ISODate) << "\n";
+    out << "程序版本: " << APP_VERSION << "\n";
+    out << "连接状态: " << connectionStateText() << "\n";
+    out << "外网连通: " << (m_isConnected ? "是" : "否") << "\n";
+    out << "当前SSID: " << (m_currentSSID.isEmpty() ? "未检测到" : m_currentSSID) << "\n";
+    out << "自动识别类型: " << determineUserTypeBySSID(m_currentSSID) << "\n";
+    out << "实际使用类型: " << determineEffectiveUserType(m_currentSSID) << "\n";
+    out << "学生配置: " << (hasStudentConfig() ? "完整" : "未完整") << "\n";
+    out << "教师配置: " << (hasTeacherConfig() ? "完整" : "未完整") << "\n";
+    out << "密码存储: " << CredentialStore::backendName()
+        << (CredentialStore::secureBackendAvailable() ? " (安全)" : " (非安全后备)") << "\n";
+    out << "定时器活动: " << (isTimerActive() ? "是" : "否") << "\n";
+    out << "正在配置: " << (m_isConfiguring ? "是" : "否") << "\n";
+    out << "SSID检测中: " << (m_isUpdatingSSID ? "是" : "否") << "\n";
+    out << "网络检测请求: " << (m_currentReply ? "存在" : "无") << "\n";
+    out << "登录请求: " << (m_loginReply ? "存在" : "无") << "\n";
+    out << "登录重试计数: " << m_loginRetryCount << "/" << MAX_LOGIN_RETRIES << "\n";
+    out << "最近登录成功: "
+        << (m_lastLoginSuccess.isValid() ? m_lastLoginSuccess.toString(Qt::ISODate) : "无") << "\n";
+    out << "\n说明: 诊断报告不会包含账号密码。\n";
+    return report;
 }
 
 void WiFiManager::checkInternetConnection()
@@ -413,6 +492,7 @@ void WiFiManager::checkInternetConnection()
     }
     
     qDebug() << "发送网络检测请求到: http://www.baidu.com";
+    setConnectionState(ConnectionState::CheckingNetwork);
     
     // 恢复外网连通性检测，这是用户的需求
     QNetworkRequest request(QUrl("http://www.baidu.com"));
@@ -456,6 +536,7 @@ void WiFiManager::sendLoginRequest(const QString &user, const QString &password,
 void WiFiManager::startAutoReconnect()
 {
     qDebug() << "启动自动重连...";
+    setConnectionState(m_isConnected ? ConnectionState::Connected : ConnectionState::Idle);
     if (m_checkTimer && !m_checkTimer->isActive()) {
         qDebug() << "启动检测定时器，间隔1秒";
         m_checkTimer->start(1000); // 每秒检查一次
@@ -469,6 +550,7 @@ void WiFiManager::startAutoReconnect()
 void WiFiManager::stopAutoReconnect()
 {
     qDebug() << "停止自动重连...";
+    setConnectionState(ConnectionState::PausedByUser);
     if (m_checkTimer && m_checkTimer->isActive()) {
         qDebug() << "停止检测定时器";
         m_checkTimer->stop();
@@ -490,6 +572,7 @@ void WiFiManager::checkConnection()
     // 如果正在配置，跳过所有网络操作
     if (m_isConfiguring) {
         qDebug() << "跳过网络检测 - 用户正在修改配置";
+        setConnectionState(ConnectionState::Configuring);
         return;
     }
     
@@ -602,12 +685,14 @@ void WiFiManager::onConnectionCheckFinished()
             if (!configError.isEmpty()) {
                 qDebug() << "配置验证失败:" << configError;
                 emit loginResult(false, configError);
+                setConnectionState(ConnectionState::Disconnected);
                 return;
             }
             
             QString user, password, server;
             if (loadConfigByUserType(effectiveUserType, user, password, server)) {
                 qDebug() << "使用账号:" << user << "进行" << (effectiveUserType == "teacher" ? "教师" : "学生") << "登录";
+                setConnectionState(ConnectionState::LoggingIn);
                 
                 // 开始新的登录尝试时重置重试计数器
                 m_loginRetryCount = 0;
@@ -626,6 +711,7 @@ void WiFiManager::onConnectionCheckFinished()
                 }
             } else {
                 qDebug() << "配置加载失败，无法进行登录";
+                setConnectionState(ConnectionState::Disconnected);
                 emit loginResult(false, QString("配置加载失败，请重新配置%1账号信息")
                                  .arg(effectiveUserType == "teacher" ? "教师" : "学生"));
             }
@@ -634,6 +720,7 @@ void WiFiManager::onConnectionCheckFinished()
         }
     } else {
         qDebug() << "网络连接正常，无需登录";
+        setConnectionState(ConnectionState::Connected);
         // 网络连接正常时，确保连接状态为true
         if (!m_isConnected) {
             qDebug() << "更新内部连接状态为true";
@@ -698,6 +785,7 @@ void WiFiManager::onLoginFinished()
                 // 登录成功后，设置连接状态为true，避免立即重新登录
                 m_isConnected = true;
                 emit connectionStatusChanged(true);
+                setConnectionState(ConnectionState::Connected);
                 qDebug() << "登录成功，更新连接状态为已连接";
                 
                 // 记录登录成功时间，用于后续容错判断
@@ -740,6 +828,7 @@ size_t WiFiManager::WriteCallback(void* contents, size_t size, size_t nmemb, voi
 
 void WiFiManager::sendPostRequest(const QString &user, const QString &password, const QString &server)
 {
+    setConnectionState(ConnectionState::LoggingIn);
     CURL* curl;
     CURLcode res;
     long http_code = 0;
@@ -786,6 +875,7 @@ void WiFiManager::sendPostRequest(const QString &user, const QString &password, 
 
 void WiFiManager::sendTeacherLoginRequest(const QString &user, const QString &password)
 {
+    setConnectionState(ConnectionState::LoggingIn);
     CURL* curl;
     CURLcode res;
     long http_code = 0;
@@ -836,6 +926,7 @@ void WiFiManager::sendTeacherLoginRequest(const QString &user, const QString &pa
 #else
 void WiFiManager::sendPostRequestQt(const QString &user, const QString &password, const QString &server)
 {
+    setConnectionState(ConnectionState::LoggingIn);
     QNetworkRequest request(QUrl("http://10.255.0.19/a79.htm"));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     request.setHeader(QNetworkRequest::UserAgentHeader, "Mozilla/5.0");
@@ -874,6 +965,7 @@ void WiFiManager::sendPostRequestQt(const QString &user, const QString &password
 
 void WiFiManager::sendTeacherLoginRequestQt(const QString &user, const QString &password)
 {
+    setConnectionState(ConnectionState::LoggingIn);
     // 教师登录使用GET请求到drcom端点
     QUrl url("http://10.255.0.19/drcom/login");
     url.setQuery(buildLoginQuery(user, "jzg", password));
@@ -938,6 +1030,9 @@ void WiFiManager::updateWifiSSIDAsync()
     }
     
     m_isUpdatingSSID = true;
+    if (m_connectionState != ConnectionState::LoggingIn && m_connectionState != ConnectionState::Configuring) {
+        setConnectionState(ConnectionState::DetectingSSID);
+    }
     m_ssidProcess = new QProcess(this);
     
     // 连接完成信号
@@ -1164,6 +1259,7 @@ QString WiFiManager::determineEffectiveUserType(const QString &ssid)
 void WiFiManager::handleLoginFailure(const QString &errorMessage)
 {
     m_loginRetryCount++;
+    setConnectionState(ConnectionState::CoolingDown);
     qDebug() << "登录失败，重试次数:" << m_loginRetryCount << "/" << MAX_LOGIN_RETRIES;
     qDebug() << "失败原因:" << errorMessage;
     
@@ -1202,6 +1298,7 @@ void WiFiManager::handleLoginFailure(const QString &errorMessage)
         // 达到最大重试次数，报告失败并重置计数器
         qDebug() << "达到最大重试次数，停止重试";
         m_loginRetryCount = 0;
+        setConnectionState(ConnectionState::Disconnected);
         emit loginResult(false, QString("登录失败 (已重试%1次): %2").arg(MAX_LOGIN_RETRIES).arg(errorMessage));
         
         // 延迟较长时间后再次尝试
@@ -1216,4 +1313,14 @@ void WiFiManager::handleLoginFailure(const QString &errorMessage)
             }
         });
     }
+}
+
+void WiFiManager::setConnectionState(ConnectionState state)
+{
+    if (m_connectionState == state) {
+        return;
+    }
+
+    m_connectionState = state;
+    emit connectionStateChanged(state, connectionStateText());
 }

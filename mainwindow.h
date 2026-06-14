@@ -37,6 +37,7 @@ private slots:
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
     void onShowConfig();
     void onToggleAutoReconnect();
+    void onCopyDiagnostics();
     void onQuit();
     void onConnectionStatusChanged(bool connected);
     void onLoginResult(bool success, const QString &message);
@@ -64,6 +65,7 @@ private:
     QMenu *m_trayMenu;
     QAction *m_showConfigAction;
     QAction *m_checkUpdateAction;
+    QAction *m_diagnosticsAction;
     QAction *m_startAction;
     QAction *m_stopAction;
     QAction *m_quitAction;

@@ -43,6 +43,7 @@ dist/
 installer/
 .qtcreator/
 *.pro.user
+secrets/
 
 # debug information files
 *.dwo

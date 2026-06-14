@@ -26,6 +26,19 @@ class WiFiManager : public QObject
     Q_OBJECT
 
 public:
+    enum class ConnectionState {
+        Idle,
+        CheckingNetwork,
+        DetectingSSID,
+        LoggingIn,
+        Connected,
+        Disconnected,
+        CoolingDown,
+        PausedByUser,
+        Configuring
+    };
+    Q_ENUM(ConnectionState)
+
     explicit WiFiManager(QObject *parent = nullptr);
     ~WiFiManager();
 
@@ -72,9 +85,13 @@ public:
     // 状态检查
     void printCurrentStatus();      // 打印当前状态信息（用于调试）
     bool isTimerActive() const;     // 检查定时器是否活动
+    ConnectionState connectionState() const;
+    QString connectionStateText() const;
+    QString diagnosticReport();
 
 signals:
     void connectionStatusChanged(bool connected);
+    void connectionStateChanged(WiFiManager::ConnectionState state, const QString &stateText);
     void loginResult(bool success, const QString &message);
     void wifiSSIDUpdated(const QString &ssid);  // SSID更新完成信号
 
@@ -121,6 +138,10 @@ private:
     void sendPostRequestQt(const QString &user, const QString &password, const QString &server);
     void sendTeacherLoginRequestQt(const QString &user, const QString &password);
 #endif
+
+    void setConnectionState(ConnectionState state);
+
+    ConnectionState m_connectionState;
 };
 
 #endif // WIFIMANAGER_H 

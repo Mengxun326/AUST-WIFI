@@ -1,13 +1,17 @@
 param(
     [string]$Version,
+    [string]$VersionFile = "APP_VERSION.txt",
     [string]$MinSupportedVersion,
     [string]$Notes = "Update notes.",
     [string]$UpdateBaseUrl = "https://www.meng-xun.top/aust-wifi",
     [string]$QtBin = "E:\QT\6.11.1\mingw_64\bin",
     [string]$MingwBin = "E:\QT\Tools\mingw1310_64\bin",
     [string]$InnoCompiler,
+    [string]$SigningKeyPath = "secrets\update-signing-private.xml",
     [switch]$Force,
-    [switch]$Clean
+    [switch]$Clean,
+    [switch]$NoSyncVersion,
+    [switch]$UnsignedManifest
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,6 +50,49 @@ function Assert-ChildPath {
     }
 }
 
+function Update-TextFile {
+    param(
+        [string]$Path,
+        [string]$Pattern,
+        [string]$Replacement
+    )
+
+    $content = Get-Content $Path -Raw
+    $updated = [System.Text.RegularExpressions.Regex]::Replace($content, $Pattern, $Replacement)
+    if ($updated -ne $content) {
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($Path, $updated, $utf8NoBom)
+    }
+}
+
+function ConvertTo-CompactJson {
+    param([object]$Value)
+    return ($Value | ConvertTo-Json -Compress)
+}
+
+function New-ManifestSignature {
+    param(
+        [string]$PayloadJson,
+        [string]$PrivateKeyPath
+    )
+
+    if (-not (Test-Path $PrivateKeyPath)) {
+        throw "Signing private key not found: $PrivateKeyPath. Run scripts\new-update-signing-key.ps1 first, or pass -UnsignedManifest for local testing only."
+    }
+
+    $privateXml = Get-Content $PrivateKeyPath -Raw
+    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
+    try {
+        $rsa.FromXmlString($privateXml)
+        $payloadBytes = [System.Text.Encoding]::UTF8.GetBytes($PayloadJson)
+        $sha256Oid = [System.Security.Cryptography.CryptoConfig]::MapNameToOID("SHA256")
+        $signatureBytes = $rsa.SignData($payloadBytes, $sha256Oid)
+        return [Convert]::ToBase64String($signatureBytes)
+    } finally {
+        $rsa.Clear()
+    }
+}
+
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 Set-Location $repoRoot
 
@@ -63,13 +110,20 @@ if (-not (Test-Path $appConfigPath)) {
     throw "Missing app_config.h"
 }
 
+$versionFilePath = Join-Path $repoRoot $VersionFile
 $appConfig = Get-Content $appConfigPath -Raw
 if (-not $Version) {
-    if ($appConfig -match '#define\s+APP_VERSION\s+"([^"]+)"') {
-        $Version = $Matches[1]
+    if (Test-Path $versionFilePath) {
+        $Version = (Get-Content $versionFilePath -Raw).Trim()
+    } elseif ($appConfig -match '#define\s+APP_VERSION\s+"([^"]+)"') {
+        $Version = $Matches[1].Trim()
     } else {
-        throw "Cannot read APP_VERSION from app_config.h"
+        throw "Cannot read version from $VersionFile or app_config.h"
     }
+}
+
+if ($Version -notmatch '^\d+\.\d+\.\d+([.-][A-Za-z0-9]+)?$') {
+    throw "Version must look like 4.0.0 or 4.0.0-beta: $Version"
 }
 
 if (-not $MinSupportedVersion) {
@@ -93,6 +147,17 @@ $distDir = Join-Path $repoRoot "dist\AUST_WIFI"
 $installerDir = Join-Path $repoRoot "installer"
 $projectFile = Join-Path $repoRoot "AUST_WIFI.pro"
 $setupScript = Join-Path $repoRoot "setup.iss"
+
+if (-not $NoSyncVersion) {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($versionFilePath, $Version + [Environment]::NewLine, $utf8NoBom)
+    Update-TextFile -Path $appConfigPath `
+        -Pattern '#define\s+APP_VERSION\s+"[^"]+"' `
+        -Replacement "#define APP_VERSION `"$Version`""
+    Update-TextFile -Path $setupScript `
+        -Pattern '#define\s+MyAppVersion\s+"[^"]+"' `
+        -Replacement "#define MyAppVersion `"$Version`""
+}
 
 Assert-ChildPath -Root $repoRoot -Path $buildDir
 Assert-ChildPath -Root $repoRoot -Path $distDir
@@ -155,8 +220,9 @@ if (-not (Test-Path $installerPath)) {
 $hash = (Get-FileHash -Algorithm SHA256 $installerPath).Hash.ToLowerInvariant()
 $size = (Get-Item $installerPath).Length
 $manifestPath = Join-Path $installerDir "update.json"
+$signingKeyFullPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $SigningKeyPath))
 
-$manifest = [ordered]@{
+$payload = [ordered]@{
     latest = $Version
     min_supported = $MinSupportedVersion
     url = "$UpdateBaseUrl/releases/AUST-WIFI-Setup-$Version.exe"
@@ -165,6 +231,22 @@ $manifest = [ordered]@{
     published_at = (Get-Date -Format "yyyy-MM-dd")
     notes = $Notes
     force = [bool]$Force
+}
+
+$manifest = [ordered]@{}
+foreach ($key in $payload.Keys) {
+    $manifest[$key] = $payload[$key]
+}
+
+if (-not $UnsignedManifest) {
+    $payloadJson = ConvertTo-CompactJson -Value $payload
+    $payloadBytes = [System.Text.Encoding]::UTF8.GetBytes($payloadJson)
+    $manifest["manifest_version"] = 2
+    $manifest["signature_algorithm"] = "rsa-sha256-pkcs1-v1_5"
+    $manifest["payload"] = [Convert]::ToBase64String($payloadBytes)
+    $manifest["signature"] = New-ManifestSignature -PayloadJson $payloadJson -PrivateKeyPath $signingKeyFullPath
+} else {
+    Write-Warning "Generating unsigned update manifest. V4 clients with APP_REQUIRE_SIGNED_MANIFEST=1 will reject it."
 }
 
 $manifestJson = $manifest | ConvertTo-Json

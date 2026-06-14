@@ -1,10 +1,14 @@
 {
-  "latest": "3.1.0",
+  "latest": "4.0.0",
   "min_supported": "3.0.0",
-  "url": "https://www.meng-xun.top/aust-wifi/releases/AUST-WIFI-Setup-3.1.0.exe",
+  "url": "https://www.meng-xun.top/aust-wifi/releases/AUST-WIFI-Setup-4.0.0.exe",
   "sha256": "REPLACE_WITH_SHA256",
   "size": 0,
-  "published_at": "2026-06-12",
+  "published_at": "2026-06-14",
   "notes": "填写本次更新说明。",
-  "force": false
+  "force": false,
+  "manifest_version": 2,
+  "signature_algorithm": "rsa-sha256-pkcs1-v1_5",
+  "payload": "GENERATED_BY_RELEASE_SCRIPT",
+  "signature": "GENERATED_BY_RELEASE_SCRIPT"
 }
