@@ -117,10 +117,16 @@ chmod 600 ~/.ssh/authorized_keys
 mkdir -p /www/wwwroot/www.meng-xun.top/aust-wifi/releases
 ```
 
-回到 Windows，先测试 SSH 是否能免密登录：
+如果你已经有服务器 root 私钥，也可以把私钥放到 Windows 的 `.ssh` 目录，例如：
+
+```text
+C:\Users\Meng_\.ssh\aust_wifi_root_ed25519
+```
+
+当前服务器 SSH 端口为 `32208`。回到 Windows，先测试 SSH 是否能免密登录：
 
 ```powershell
-ssh -i "$env:USERPROFILE\.ssh\aust_wifi_deploy" root@47.121.180.250 "ls -ld /www/wwwroot/www.meng-xun.top/aust-wifi"
+ssh -p 32208 -i "$env:USERPROFILE\.ssh\aust_wifi_root_ed25519" root@47.121.180.250 "ls -ld /www/wwwroot/www.meng-xun.top/aust-wifi"
 ```
 
 测试通过后，发布并自动上传：
@@ -132,10 +138,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 `
   -Upload `
   -UploadUser root `
   -UploadHost 47.121.180.250 `
-  -UploadIdentityFile "$env:USERPROFILE\.ssh\aust_wifi_deploy"
+  -UploadPort 32208 `
+  -UploadIdentityFile "$env:USERPROFILE\.ssh\aust_wifi_root_ed25519"
 ```
 
-如果服务器网站目录不是 `/www/wwwroot/www.meng-xun.top/aust-wifi`，可以通过 `-UploadRemoteRoot` 覆盖。使用密码登录也可以省略 `-UploadIdentityFile`，但脚本会在上传阶段要求输入 SSH 密码，不适合无人值守发布。
+如果服务器网站目录不是 `/www/wwwroot/www.meng-xun.top/aust-wifi`，可以通过 `-UploadRemoteRoot` 覆盖。脚本默认 SSH 端口已经设置为 `32208`，如果服务器端口后续变化，可以通过 `-UploadPort` 覆盖。使用密码登录也可以省略 `-UploadIdentityFile`，但脚本会在上传阶段要求输入 SSH 密码，不适合无人值守发布。
 
 如果 Qt 或 Inno Setup 安装目录不同，可以传入参数覆盖：
 

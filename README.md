@@ -414,7 +414,7 @@ make check
 powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -Notes "填写本次更新说明。"
 
 # 生成后自动上传到宝塔服务器
-powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -Notes "填写本次更新说明。" -Upload -UploadUser root -UploadHost 47.121.180.250 -UploadIdentityFile "$env:USERPROFILE\.ssh\aust_wifi_deploy"
+powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -Notes "填写本次更新说明。" -Upload -UploadUser root -UploadHost 47.121.180.250 -UploadPort 32208 -UploadIdentityFile "$env:USERPROFILE\.ssh\aust_wifi_root_ed25519"
 
 # 发布标签示例
 git tag v4.0.0

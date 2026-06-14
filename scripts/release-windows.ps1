@@ -11,7 +11,7 @@ param(
     [switch]$Upload,
     [string]$UploadHost = "47.121.180.250",
     [string]$UploadUser,
-    [int]$UploadPort = 22,
+    [int]$UploadPort = 32208,
     [string]$UploadRemoteRoot = "/www/wwwroot/www.meng-xun.top/aust-wifi",
     [string]$UploadIdentityFile,
     [switch]$Force,
