@@ -337,7 +337,7 @@ QFrame#divider {
       <item>
        <widget class="QLabel" name="dialogSubtitleLabel">
         <property name="text">
-         <string>配置您的学生和教师账号信息，系统将根据WiFi网络自动选择对应配置</string>
+         <string>配置学生和教师账号；填写教师账号后将优先使用教师登录，未填写时再根据 WiFi 选择学生配置</string>
         </property>
        </widget>
       </item>
@@ -608,7 +608,7 @@ QFrame#divider {
           <item>
            <widget class="QLabel" name="teacherHintLabel">
             <property name="text">
-             <string>提示：教师账号固定使用学校统一服务器，无需选择运营商</string>
+             <string>提示：教师账号固定使用学校统一服务器；填写教师账号和密码后，程序会优先使用教师账号登录</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>

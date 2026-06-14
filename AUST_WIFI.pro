@@ -40,7 +40,8 @@ SOURCES += \
     config_dialog.cpp \
     credentialstore.cpp \
     updatemanager.cpp \
-    updatesignature.cpp
+    updatesignature.cpp \
+    uistyles.cpp
 
 HEADERS += \
     app_config.h \
@@ -49,7 +50,8 @@ HEADERS += \
     config_dialog.h \
     credentialstore.h \
     updatemanager.h \
-    updatesignature.h
+    updatesignature.h \
+    uistyles.h
 
 FORMS += \
     mainwindow.ui \

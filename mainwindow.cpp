@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "app_config.h"
+#include "uistyles.h"
 #include <QApplication>
 #include <QDir>
 #include <QStandardPaths>
@@ -41,6 +42,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_moveEndTimer(nullptr)
 {
     ui->setupUi(this);
+    setStyleSheet(UiStyles::mainWindow());
     setWindowTitle("AUST WiFi 自动重连工具");
     
     // 设置状态栏显示个人信息（Windows 11风格）
@@ -74,8 +76,19 @@ MainWindow::MainWindow(QWidget *parent)
     updateToggleButton();
     
     // 初始化状态显示
-    ui->statusIndicator->setStyleSheet("background-color: #FFB900;");
-    ui->statusIndicator->setProperty("class", "connecting");
+    ui->subtitleLabel->setWordWrap(true);
+    ui->statusDescriptionLabel->setWordWrap(true);
+    ui->wifiNameValue->setWordWrap(true);
+    ui->userTypeValue->setWordWrap(true);
+    ui->lastLoginValue->setWordWrap(true);
+    ui->configButton->setCursor(Qt::PointingHandCursor);
+    ui->toggleButton->setCursor(Qt::PointingHandCursor);
+    ui->statusCard->setProperty("state", "checking");
+    ui->statusIndicator->setProperty("state", "checking");
+    ui->statusCard->style()->unpolish(ui->statusCard);
+    ui->statusCard->style()->polish(ui->statusCard);
+    ui->statusIndicator->style()->unpolish(ui->statusIndicator);
+    ui->statusIndicator->style()->polish(ui->statusIndicator);
     ui->statusValueLabel->setText("正在检测...");
     ui->statusDescriptionLabel->setText("系统正在检测您的网络连接状态");
     
@@ -640,8 +653,10 @@ void MainWindow::onConnectionStatusChanged(bool connected)
         m_trayIcon->setToolTip("AUST WiFi - 已连接");
         
         // 更新状态指示器
-        ui->statusIndicator->setStyleSheet("background-color: #107C10;");
-        ui->statusIndicator->setProperty("class", "connected");
+        ui->statusCard->setProperty("state", "connected");
+        ui->statusIndicator->setProperty("state", "connected");
+        ui->statusCard->style()->unpolish(ui->statusCard);
+        ui->statusCard->style()->polish(ui->statusCard);
         ui->statusIndicator->style()->unpolish(ui->statusIndicator);
         ui->statusIndicator->style()->polish(ui->statusIndicator);
         
@@ -661,8 +676,10 @@ void MainWindow::onConnectionStatusChanged(bool connected)
         m_trayIcon->setToolTip("AUST WiFi - 未连接");
         
         // 更新状态指示器
-        ui->statusIndicator->setStyleSheet("background-color: #D13438;");
-        ui->statusIndicator->setProperty("class", "disconnected");
+        ui->statusCard->setProperty("state", "disconnected");
+        ui->statusIndicator->setProperty("state", "disconnected");
+        ui->statusCard->style()->unpolish(ui->statusCard);
+        ui->statusCard->style()->polish(ui->statusCard);
         ui->statusIndicator->style()->unpolish(ui->statusIndicator);
         ui->statusIndicator->style()->polish(ui->statusIndicator);
         

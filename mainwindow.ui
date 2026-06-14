@@ -227,7 +227,7 @@ QStatusBar {
       <item>
        <widget class="QLabel" name="subtitleLabel">
         <property name="text">
-         <string>智能管理您的校园网连接，支持学生和教师双配置</string>
+         <string>智能管理校园网连接，支持教师优先、自动重连和启动检查更新</string>
         </property>
        </widget>
       </item>

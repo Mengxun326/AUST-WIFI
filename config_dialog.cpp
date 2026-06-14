@@ -1,6 +1,7 @@
 #include "config_dialog.h"
 #include "ui_config_dialog.h"
 #include "credentialstore.h"
+#include "uistyles.h"
 
 ConfigDialog::ConfigDialog(QWidget *parent)
     : QDialog(parent)
@@ -8,6 +9,25 @@ ConfigDialog::ConfigDialog(QWidget *parent)
     , m_settings(new QSettings("AUST_WIFI", "Config", this))
 {
     ui->setupUi(this);
+    setStyleSheet(UiStyles::configDialog());
+    setWindowFlag(Qt::WindowContextHelpButtonHint, false);
+    ui->dialogSubtitleLabel->setWordWrap(true);
+    ui->studentUserEdit->setClearButtonEnabled(true);
+    ui->studentPasswordEdit->setClearButtonEnabled(true);
+    ui->teacherUserEdit->setClearButtonEnabled(true);
+    ui->teacherPasswordEdit->setClearButtonEnabled(true);
+    ui->saveButton->setDefault(true);
+    ui->saveButton->setCursor(Qt::PointingHandCursor);
+    ui->cancelButton->setAutoDefault(false);
+    ui->cancelButton->setCursor(Qt::PointingHandCursor);
+    ui->tabWidget->setDocumentMode(true);
+    setTabOrder(ui->studentUserEdit, ui->studentPasswordEdit);
+    setTabOrder(ui->studentPasswordEdit, ui->studentServerCombo);
+    setTabOrder(ui->studentServerCombo, ui->teacherUserEdit);
+    setTabOrder(ui->teacherUserEdit, ui->teacherPasswordEdit);
+    setTabOrder(ui->teacherPasswordEdit, ui->autoStartCheck);
+    setTabOrder(ui->autoStartCheck, ui->minimizeToTrayCheck);
+    setTabOrder(ui->minimizeToTrayCheck, ui->saveButton);
     
     // 设置下拉框数据
     setupComboBoxData();
