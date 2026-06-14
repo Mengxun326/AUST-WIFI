@@ -96,8 +96,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -N
 发布脚本支持通过 SSH/SCP 自动上传。默认上传位置匹配当前宝塔 Nginx 配置：
 
 ```text
-/www/wwwroot/www.meng-xun.top/aust-wifi/update.json
-/www/wwwroot/www.meng-xun.top/aust-wifi/releases/AUST-WIFI-Setup-版本号.exe
+/www/wwwroot/47_121_180_250/aust-wifi/update.json
+/www/wwwroot/47_121_180_250/aust-wifi/releases/AUST-WIFI-Setup-版本号.exe
 ```
 
 第一次使用前，建议在 Windows 本机生成一个专门用于发布的 SSH 密钥，不要把服务器密码写进脚本：
@@ -114,7 +114,7 @@ mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 echo '这里粘贴 aust_wifi_deploy.pub 的完整内容' >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
-mkdir -p /www/wwwroot/www.meng-xun.top/aust-wifi/releases
+mkdir -p /www/wwwroot/47_121_180_250/aust-wifi/releases
 ```
 
 如果你已经有服务器 root 私钥，也可以把私钥放到 Windows 的 `.ssh` 目录，例如：
@@ -126,7 +126,7 @@ C:\Users\Meng_\.ssh\aust_wifi_root_ed25519
 当前服务器 SSH 端口为 `32208`。回到 Windows，先测试 SSH 是否能免密登录：
 
 ```powershell
-ssh -p 32208 -i "$env:USERPROFILE\.ssh\aust_wifi_root_ed25519" root@47.121.180.250 "ls -ld /www/wwwroot/www.meng-xun.top/aust-wifi"
+ssh -p 32208 -i "$env:USERPROFILE\.ssh\aust_wifi_root_ed25519" root@47.121.180.250 "ls -ld /www/wwwroot/47_121_180_250/aust-wifi"
 ```
 
 测试通过后，发布并自动上传：
@@ -142,7 +142,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 `
   -UploadIdentityFile "$env:USERPROFILE\.ssh\aust_wifi_root_ed25519"
 ```
 
-如果服务器网站目录不是 `/www/wwwroot/www.meng-xun.top/aust-wifi`，可以通过 `-UploadRemoteRoot` 覆盖。脚本默认 SSH 端口已经设置为 `32208`，如果服务器端口后续变化，可以通过 `-UploadPort` 覆盖。使用密码登录也可以省略 `-UploadIdentityFile`，但脚本会在上传阶段要求输入 SSH 密码，不适合无人值守发布。
+如果服务器网站目录不是 `/www/wwwroot/47_121_180_250/aust-wifi`，可以通过 `-UploadRemoteRoot` 覆盖。脚本默认 SSH 端口已经设置为 `32208`，如果服务器端口后续变化，可以通过 `-UploadPort` 覆盖。使用密码登录也可以省略 `-UploadIdentityFile`，但脚本会在上传阶段要求输入 SSH 密码，不适合无人值守发布。
 
 如果 Qt 或 Inno Setup 安装目录不同，可以传入参数覆盖：
 
