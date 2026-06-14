@@ -63,7 +63,7 @@ function Update-TextFile {
         [string]$Replacement
     )
 
-    $content = Get-Content $Path -Raw
+    $content = Get-Content $Path -Raw -Encoding UTF8
     $updated = [System.Text.RegularExpressions.Regex]::Replace($content, $Pattern, $Replacement)
     if ($updated -ne $content) {
         $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
@@ -86,7 +86,7 @@ function New-ManifestSignature {
         throw "Signing private key not found: $PrivateKeyPath. Run scripts\new-update-signing-key.ps1 first, or pass -UnsignedManifest for local testing only."
     }
 
-    $privateXml = Get-Content $PrivateKeyPath -Raw
+    $privateXml = Get-Content $PrivateKeyPath -Raw -Encoding UTF8
     $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
     try {
         $rsa.FromXmlString($privateXml)
@@ -141,10 +141,10 @@ if (-not (Test-Path $appConfigPath)) {
 }
 
 $versionFilePath = Join-Path $repoRoot $VersionFile
-$appConfig = Get-Content $appConfigPath -Raw
+$appConfig = Get-Content $appConfigPath -Raw -Encoding UTF8
 if (-not $Version) {
     if (Test-Path $versionFilePath) {
-        $Version = (Get-Content $versionFilePath -Raw).Trim()
+        $Version = (Get-Content $versionFilePath -Raw -Encoding UTF8).Trim()
     } elseif ($appConfig -match '#define\s+APP_VERSION\s+"([^"]+)"') {
         $Version = $Matches[1].Trim()
     } else {

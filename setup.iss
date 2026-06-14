@@ -5,7 +5,7 @@
 #define MyAppName "AUST WiFi 自动重连工具"
 #endif
 #ifndef MyAppVersion
-#define MyAppVersion "4.0.0"
+#define MyAppVersion "4.0.1"
 #endif
 #ifndef MyAppPublisher
 #define MyAppPublisher "王智杰"
@@ -63,7 +63,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; 注意：不要在任何共享系统文件上使用 "Flags: ignoreversion" 
+; 注意：不要在任何共享系统文件上使用 "Flags: ignoreversion"
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -71,4 +71,3 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-

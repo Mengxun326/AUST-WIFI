@@ -57,6 +57,8 @@ private:
     void createUpdateManager();
     void checkFirstRun();
     void startBackgroundMode();
+    void scheduleStartupUpdateCheck();
+    void runStartupUpdateCheck();
     void updateWifiInfo();
     void closeUpdateProgressDialog();
 
@@ -79,6 +81,7 @@ private:
     bool m_backgroundMode;
     bool m_isConfigDialogOpen;  // 配置对话框是否打开
     bool m_isAutoReconnectActive;  // 自动重连是否激活
+    bool m_startupUpdateCheckDone;  // 本次启动是否已经自动检查更新
     QTimer *m_wifiInfoTimer;  // WiFi信息更新定时器
     QTimer *m_moveEndTimer;  // 窗口移动结束检测定时器
     void updateToggleButton();  // 更新切换按钮的状态和文本

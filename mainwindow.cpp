@@ -36,6 +36,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_backgroundMode(false)
     , m_isConfigDialogOpen(false)
     , m_isAutoReconnectActive(false)
+    , m_startupUpdateCheckDone(false)
     , m_wifiInfoTimer(nullptr)
     , m_moveEndTimer(nullptr)
 {
@@ -131,12 +132,8 @@ MainWindow::MainWindow(QWidget *parent)
         qDebug() << "确保网络检测功能已启动，以支持配置界面的暂停功能";
     });
 
-    // 启动后静默检查更新；只有发现新版或出错且用户手动触发时才打扰用户
-    QTimer::singleShot(8000, [this]() {
-        if (m_updateManager) {
-            m_updateManager->checkForUpdates(false);
-        }
-    });
+    // 每次启动后自动检查一次更新；网络较早可用时会提前触发
+    scheduleStartupUpdateCheck();
 }
 
 MainWindow::~MainWindow()
@@ -319,6 +316,29 @@ void MainWindow::startBackgroundMode()
     m_wifiManager->startAutoReconnect();
     m_isAutoReconnectActive = true;
     updateToggleButton();
+}
+
+void MainWindow::scheduleStartupUpdateCheck()
+{
+    QTimer::singleShot(5000, this, &MainWindow::runStartupUpdateCheck);
+}
+
+void MainWindow::runStartupUpdateCheck()
+{
+    if (m_startupUpdateCheckDone || !m_updateManager) {
+        return;
+    }
+
+    if (m_updateManager->isBusy()) {
+        QTimer::singleShot(3000, this, &MainWindow::runStartupUpdateCheck);
+        return;
+    }
+
+    m_startupUpdateCheckDone = true;
+    if (m_trayIcon) {
+        m_trayIcon->showMessage("AUST WiFi", "正在自动检查更新...", QSystemTrayIcon::Information, 1500);
+    }
+    m_updateManager->checkForUpdates(false);
 }
 
 void MainWindow::setupAutoStart()
@@ -512,6 +532,14 @@ void MainWindow::onUpdateAvailable(const UpdateInfo &info, bool manual)
 void MainWindow::onNoUpdateAvailable(const QString &currentVersion, const QString &latestVersion, bool manual)
 {
     if (!manual) {
+        if (m_trayIcon) {
+            m_trayIcon->showMessage(
+                "AUST WiFi",
+                QString("已自动检查更新，当前已是最新版本：%1").arg(currentVersion),
+                QSystemTrayIcon::Information,
+                2000
+            );
+        }
         return;
     }
 
@@ -525,6 +553,15 @@ void MainWindow::onNoUpdateAvailable(const QString &currentVersion, const QStrin
 void MainWindow::onUpdateCheckFailed(const QString &message, bool manual)
 {
     if (!manual) {
+        qDebug() << "启动自动检查更新失败:" << message;
+        if (m_trayIcon) {
+            m_trayIcon->showMessage(
+                "AUST WiFi",
+                "自动检查更新失败，可稍后手动检查。",
+                QSystemTrayIcon::Warning,
+                2500
+            );
+        }
         return;
     }
 
@@ -598,6 +635,8 @@ void MainWindow::onConnectionStatusChanged(bool connected)
     QIcon statusIcon;
     
     if (connected) {
+        runStartupUpdateCheck();
+
         m_trayIcon->setToolTip("AUST WiFi - 已连接");
         
         // 更新状态指示器

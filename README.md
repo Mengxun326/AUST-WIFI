@@ -4,12 +4,12 @@
 
 *开发者：信息安全23-1 王智杰*
 
-[![Version](https://img.shields.io/badge/Version-v4.0.0-brightgreen.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
+[![Version](https://img.shields.io/badge/Version-v4.0.1-brightgreen.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
 [![License](https://img.shields.io/badge/License-Custom-blue.svg)](./LICENSE)
 [![Qt](https://img.shields.io/badge/Qt-6.7+-green.svg)](https://www.qt.io/)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20Linux-lightgrey.svg)](https://www.microsoft.com/windows/)
-[![下载](https://img.shields.io/badge/下载-V4.0.0-blue.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
+[![下载](https://img.shields.io/badge/下载-V4.0.1-blue.svg)](https://github.com/Mengxun326/AUST-WIFI/releases)
 [![Star](https://img.shields.io/badge/GitHub-⭐Star-yellow.svg)](https://github.com/Mengxun326/AUST-WIFI)
 
 ## 📸 项目预览
@@ -417,8 +417,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -N
 powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -Notes "填写本次更新说明。" -Upload -UploadUser root -UploadHost 47.121.180.250 -UploadPort 32208 -UploadIdentityFile "$env:USERPROFILE\.ssh\aust_wifi_root_ed25519"
 
 # 发布标签示例
-git tag v4.0.0
-git push origin v4.0.0
+git tag v4.0.1
+git push origin v4.0.1
 ```
 
 ## 📄 许可证
