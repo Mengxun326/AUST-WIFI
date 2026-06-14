@@ -91,6 +91,52 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -N
 
 脚本会完成版本号同步、Qt Release 编译、`windeployqt`、Inno Setup 打包、SHA-256 计算、更新清单签名，并在 `installer\update.json` 中生成可直接上传的更新清单。
 
+## 自动上传到宝塔服务器
+
+发布脚本支持通过 SSH/SCP 自动上传。默认上传位置匹配当前宝塔 Nginx 配置：
+
+```text
+/www/wwwroot/www.meng-xun.top/aust-wifi/update.json
+/www/wwwroot/www.meng-xun.top/aust-wifi/releases/AUST-WIFI-Setup-版本号.exe
+```
+
+第一次使用前，建议在 Windows 本机生成一个专门用于发布的 SSH 密钥，不要把服务器密码写进脚本：
+
+```powershell
+ssh-keygen -t ed25519 -f "$env:USERPROFILE\.ssh\aust_wifi_deploy" -C "aust-wifi-release"
+Get-Content "$env:USERPROFILE\.ssh\aust_wifi_deploy.pub"
+```
+
+然后在宝塔面板中打开“终端”，把上一步输出的公钥加入服务器账号的 `authorized_keys`。如果使用 `root` 账号，可以执行：
+
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+echo '这里粘贴 aust_wifi_deploy.pub 的完整内容' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+mkdir -p /www/wwwroot/www.meng-xun.top/aust-wifi/releases
+```
+
+回到 Windows，先测试 SSH 是否能免密登录：
+
+```powershell
+ssh -i "$env:USERPROFILE\.ssh\aust_wifi_deploy" root@47.121.180.250 "ls -ld /www/wwwroot/www.meng-xun.top/aust-wifi"
+```
+
+测试通过后，发布并自动上传：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 `
+  -Clean `
+  -Notes "填写本次更新说明。" `
+  -Upload `
+  -UploadUser root `
+  -UploadHost 47.121.180.250 `
+  -UploadIdentityFile "$env:USERPROFILE\.ssh\aust_wifi_deploy"
+```
+
+如果服务器网站目录不是 `/www/wwwroot/www.meng-xun.top/aust-wifi`，可以通过 `-UploadRemoteRoot` 覆盖。使用密码登录也可以省略 `-UploadIdentityFile`，但脚本会在上传阶段要求输入 SSH 密码，不适合无人值守发布。
+
 如果 Qt 或 Inno Setup 安装目录不同，可以传入参数覆盖：
 
 ```powershell
@@ -107,6 +153,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 `
 installer\AUST-WIFI-Setup-版本号.exe -> /aust-wifi/releases/AUST-WIFI-Setup-版本号.exe
 installer\update.json -> /aust-wifi/update.json
 ```
+
+如果已经配置 `-Upload`，这一步会由脚本自动完成。
 
 ## 手工发布
 

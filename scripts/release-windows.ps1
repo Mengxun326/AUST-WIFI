@@ -8,6 +8,12 @@ param(
     [string]$MingwBin = "E:\QT\Tools\mingw1310_64\bin",
     [string]$InnoCompiler,
     [string]$SigningKeyPath = "secrets\update-signing-private.xml",
+    [switch]$Upload,
+    [string]$UploadHost = "47.121.180.250",
+    [string]$UploadUser,
+    [int]$UploadPort = 22,
+    [string]$UploadRemoteRoot = "/www/wwwroot/www.meng-xun.top/aust-wifi",
+    [string]$UploadIdentityFile,
     [switch]$Force,
     [switch]$Clean,
     [switch]$NoSyncVersion,
@@ -91,6 +97,22 @@ function New-ManifestSignature {
     } finally {
         $rsa.Clear()
     }
+}
+
+function Resolve-InputFilePath {
+    param([string]$Path)
+
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return [System.IO.Path]::GetFullPath($Path)
+    }
+
+    return [System.IO.Path]::GetFullPath((Join-Path $repoRoot $Path))
+}
+
+function ConvertTo-RemoteShellArgument {
+    param([string]$Value)
+
+    return "'" + $Value.Replace("'", "'`"'`"'") + "'"
 }
 
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
@@ -252,6 +274,59 @@ if (-not $UnsignedManifest) {
 $manifestJson = $manifest | ConvertTo-Json
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($manifestPath, $manifestJson + [Environment]::NewLine, $utf8NoBom)
+
+if ($Upload) {
+    if (-not $UploadUser) {
+        throw "UploadUser is required when -Upload is set. Example: -UploadUser root"
+    }
+
+    if (-not $UploadRemoteRoot.StartsWith("/")) {
+        throw "UploadRemoteRoot must be an absolute Linux path: $UploadRemoteRoot"
+    }
+
+    $ssh = Resolve-Tool -PreferredPath $null -CommandName "ssh.exe"
+    $scp = Resolve-Tool -PreferredPath $null -CommandName "scp.exe"
+    $remote = "$UploadUser@$UploadHost"
+    $remoteRoot = $UploadRemoteRoot.TrimEnd("/")
+    $remoteReleasesDir = "$remoteRoot/releases"
+    $remoteInstallerPath = "$remoteReleasesDir/AUST-WIFI-Setup-$Version.exe"
+    $remoteManifestPath = "$remoteRoot/update.json"
+
+    $sshArgs = @("-p", [string]$UploadPort)
+    $scpArgs = @("-P", [string]$UploadPort)
+
+    if ($UploadIdentityFile) {
+        $uploadIdentityFullPath = Resolve-InputFilePath -Path $UploadIdentityFile
+        if (-not (Test-Path $uploadIdentityFullPath)) {
+            throw "Upload identity file not found: $uploadIdentityFullPath"
+        }
+
+        $sshArgs += @("-i", $uploadIdentityFullPath)
+        $scpArgs += @("-i", $uploadIdentityFullPath)
+    }
+
+    Write-Host ""
+    Write-Host "Uploading release artifacts..."
+    Write-Host "Remote: $remote"
+    Write-Host "Remote root: $remoteRoot"
+
+    & $ssh @sshArgs $remote ("mkdir -p " + (ConvertTo-RemoteShellArgument -Value $remoteReleasesDir))
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to create remote release directory."
+    }
+
+    & $scp @scpArgs $installerPath "${remote}:$remoteInstallerPath"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to upload installer."
+    }
+
+    & $scp @scpArgs $manifestPath "${remote}:$remoteManifestPath"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to upload update manifest."
+    }
+
+    Write-Host "Upload completed."
+}
 
 Write-Host ""
 Write-Host "Release artifacts generated:"

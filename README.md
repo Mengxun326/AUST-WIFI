@@ -413,6 +413,9 @@ make check
 # 生成 Windows 安装包和带签名的 update.json
 powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -Notes "填写本次更新说明。"
 
+# 生成后自动上传到宝塔服务器
+powershell -ExecutionPolicy Bypass -File .\scripts\release-windows.ps1 -Clean -Notes "填写本次更新说明。" -Upload -UploadUser root -UploadHost 47.121.180.250 -UploadIdentityFile "$env:USERPROFILE\.ssh\aust_wifi_deploy"
+
 # 发布标签示例
 git tag v4.0.0
 git push origin v4.0.0
