@@ -119,11 +119,19 @@ $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 Set-Location $repoRoot
 
 if (-not $InnoCompiler) {
+    $innoCandidates = @()
     $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
     if ($programFilesX86) {
-        $InnoCompiler = Join-Path $programFilesX86 "Inno Setup 6\ISCC.exe"
-    } else {
-        $InnoCompiler = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+        $innoCandidates += (Join-Path $programFilesX86 "Inno Setup 6\ISCC.exe")
+    }
+    $programFiles = [Environment]::GetEnvironmentVariable("ProgramFiles")
+    if ($programFiles) {
+        $innoCandidates += (Join-Path $programFiles "Inno Setup 6\ISCC.exe")
+    }
+    $innoCandidates += "D:\Inno Setup 6\ISCC.exe"
+    $InnoCompiler = $innoCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $InnoCompiler) {
+        $InnoCompiler = $innoCandidates[0]
     }
 }
 
