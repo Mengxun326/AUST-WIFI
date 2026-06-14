@@ -147,6 +147,14 @@ make
 
 详细 Linux 编译说明请参考：[Linux 编译指南](./docs/LINUX_BUILD.md)
 
+#### Android MVP 编译
+```powershell
+# 生成 arm64-v8a 调试 APK
+powershell -ExecutionPolicy Bypass -File .\scripts\build_android_apk.ps1
+```
+
+当前 Android 版本为手机端 MVP，可保存账号并手动登录校园网。详细说明请参考：[Android MVP 说明](./android/README_ANDROID.md)
+
 ### 📱 使用指南
 
 #### 首次运行配置
@@ -251,9 +259,11 @@ AUST_WIFI/
 ├── AUST_WIFI.pro           # ⚙️ Qt项目配置文件
 ├── build.bat               # 🔨 Windows一键编译脚本
 ├── build.sh                # 🔨 Linux一键编译脚本
+├── android/                # 📱 Android MVP 工程
 ├── setup.iss               # 📦 Inno Setup安装脚本
 ├── scripts/                # 🚀 发布辅助脚本
 │   ├── release-windows.ps1
+│   ├── build_android_apk.ps1
 │   └── new-update-signing-key.ps1
 ├── icons/                  # 🎭 图标资源文件夹
 │   └── app.ico             # 应用程序图标
