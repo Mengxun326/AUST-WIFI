@@ -12,6 +12,7 @@ campus-network login request.
 - Refreshes foreground WiFi status every 15 seconds and can auto-login only on
   recognized campus WiFi.
 - Requests Android WiFi-identification permissions from the app UI.
+- Uses the shared app logo for Android launcher icons and the mobile header.
 - Uses the same login endpoint family as the desktop app.
 - Allows cleartext HTTP traffic because the campus gateway is `http://10.255.0.19`.
 - Stores passwords through Android Keystore backed AES-GCM encryption.

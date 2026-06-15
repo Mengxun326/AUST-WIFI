@@ -23,6 +23,7 @@
     <application
         android:name="org.qtproject.qt.android.bindings.QtApplication"
         android:hardwareAccelerated="true"
+        android:icon="@mipmap/ic_launcher"
         android:label="AUST WiFi"
         android:usesCleartextTraffic="true"
         android:allowBackup="true"

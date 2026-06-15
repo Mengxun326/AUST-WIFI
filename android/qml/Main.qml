@@ -9,13 +9,20 @@ ApplicationWindow {
     height: 820
     visible: true
     title: "AUST WiFi"
-    color: "#F7F8FA"
+    color: "#F5F7FB"
 
     Material.theme: Material.Light
     Material.accent: "#2563EB"
     Material.primary: "#2563EB"
 
     property bool showPasswords: false
+    readonly property color ink: "#111827"
+    readonly property color muted: "#667085"
+    readonly property color line: "#E6EAF0"
+    readonly property color card: "#FFFFFF"
+    readonly property color blue: "#2563EB"
+    readonly property color green: "#047857"
+    readonly property color amber: "#B45309"
 
     Connections {
         target: backend
@@ -41,62 +48,127 @@ ApplicationWindow {
 
     ScrollView {
         anchors.fill: parent
+        clip: true
         contentWidth: availableWidth
 
         ColumnLayout {
-            width: parent.width
-            spacing: 18
-            anchors.margins: 20
+            width: Math.min(window.width, 520)
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 16
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 2
-            }
-
-            Label {
-                text: "AUST WiFi"
-                color: "#111827"
-                font.pixelSize: 30
-                font.bold: true
-                Layout.leftMargin: 20
-                Layout.rightMargin: 20
-            }
-
-            Label {
-                text: "手机端 MVP：保存账号，可手动或启动后自动登录校园网。教师账号填写后会优先使用教师登录。"
-                color: "#667085"
-                font.pixelSize: 14
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-                Layout.leftMargin: 20
-                Layout.rightMargin: 20
+                Layout.preferredHeight: 12
             }
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: 20
-                Layout.rightMargin: 20
-                radius: 14
-                color: "#FFFFFF"
-                border.color: "#E8EAED"
-                implicitHeight: statusColumn.implicitHeight + 32
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                radius: 22
+                implicitHeight: heroLayout.implicitHeight + 32
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "#EAF1FF" }
+                    GradientStop { position: 1.0; color: "#F8FBFF" }
+                }
+                border.color: "#D8E3F7"
 
-                ColumnLayout {
-                    id: statusColumn
+                RowLayout {
+                    id: heroLayout
                     anchors.fill: parent
                     anchors.margins: 16
-                    spacing: 8
+                    spacing: 14
 
-                    Label {
-                        text: "当前状态"
-                        color: "#667085"
-                        font.pixelSize: 12
-                        font.bold: true
+                    Rectangle {
+                        Layout.preferredWidth: 72
+                        Layout.preferredHeight: 72
+                        radius: 20
+                        color: "#FFFFFF"
+                        border.color: "#DDE7F8"
+
+                        Image {
+                            anchors.fill: parent
+                            anchors.margins: 7
+                            source: "qrc:/assets/logo.png"
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        Label {
+                            text: "AUST WiFi"
+                            color: window.ink
+                            font.pixelSize: 28
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+
+                        Label {
+                            text: "校园网登录助手"
+                            color: window.muted
+                            font.pixelSize: 14
+                            Layout.fillWidth: true
+                        }
+
+                        Rectangle {
+                            radius: 999
+                            color: backend.busy ? "#FEF3C7" : (backend.campusWifiDetected ? "#DCFCE7" : "#E8F0FF")
+                            implicitWidth: statusChip.implicitWidth + 22
+                            implicitHeight: 30
+
+                            Label {
+                                id: statusChip
+                                anchors.centerIn: parent
+                                text: backend.busy ? "正在登录" : (backend.campusWifiDetected ? "校园 WiFi" : "待连接")
+                                color: backend.busy ? window.amber : (backend.campusWifiDetected ? window.green : window.blue)
+                                font.pixelSize: 13
+                                font.bold: true
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                radius: 16
+                color: window.card
+                border.color: window.line
+                implicitHeight: statusLayout.implicitHeight + 28
+
+                ColumnLayout {
+                    id: statusLayout
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 9
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Label {
+                            text: "连接状态"
+                            color: window.ink
+                            font.pixelSize: 16
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+
+                        Label {
+                            text: backend.credentialBackendText
+                            color: window.muted
+                            font.pixelSize: 12
+                        }
                     }
 
                     Label {
                         text: backend.statusText
-                        color: backend.busy ? "#B45309" : "#111827"
+                        color: backend.busy ? window.amber : window.ink
                         font.pixelSize: 18
                         font.bold: true
                         wrapMode: Text.WordWrap
@@ -105,45 +177,10 @@ ApplicationWindow {
 
                     Label {
                         text: backend.activeAccountText
-                        color: "#667085"
+                        color: window.muted
                         font.pixelSize: 13
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
-                    }
-
-                    Label {
-                        text: backend.credentialBackendText
-                        color: "#667085"
-                        font.pixelSize: 13
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
-
-                    Label {
-                        text: backend.networkStatusText
-                        color: backend.campusWifiDetected ? "#047857" : "#667085"
-                        font.pixelSize: 13
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 10
-
-                        Button {
-                            text: "授权识别 WiFi"
-                            enabled: !backend.busy
-                            Layout.fillWidth: true
-                            onClicked: backend.requestNetworkPermissions()
-                        }
-
-                        Button {
-                            text: "刷新"
-                            enabled: !backend.busy
-                            Layout.fillWidth: true
-                            onClicked: backend.refreshNetworkState()
-                        }
                     }
 
                     ProgressBar {
@@ -156,23 +193,114 @@ ApplicationWindow {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: 20
-                Layout.rightMargin: 20
-                radius: 14
-                color: "#FFFFFF"
-                border.color: "#E8EAED"
-                implicitHeight: formColumn.implicitHeight + 32
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                radius: 16
+                color: window.card
+                border.color: backend.campusWifiDetected ? "#A7F3D0" : window.line
+                implicitHeight: networkLayout.implicitHeight + 28
 
                 ColumnLayout {
-                    id: formColumn
+                    id: networkLayout
                     anchors.fill: parent
-                    anchors.margins: 16
+                    anchors.margins: 14
+                    spacing: 12
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+
+                            Label {
+                                text: "WiFi 识别"
+                                color: window.ink
+                                font.pixelSize: 16
+                                font.bold: true
+                            }
+
+                            Label {
+                                text: backend.networkStatusText
+                                color: backend.campusWifiDetected ? window.green : window.muted
+                                font.pixelSize: 13
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        Rectangle {
+                            radius: 999
+                            color: backend.wifiConnected ? "#ECFDF3" : "#F2F4F7"
+                            implicitWidth: wifiChip.implicitWidth + 18
+                            implicitHeight: 28
+
+                            Label {
+                                id: wifiChip
+                                anchors.centerIn: parent
+                                text: backend.wifiConnected ? "WiFi 已连接" : "无 WiFi"
+                                color: backend.wifiConnected ? window.green : window.muted
+                                font.pixelSize: 12
+                                font.bold: true
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Button {
+                            text: "授权识别"
+                            enabled: !backend.busy
+                            Layout.fillWidth: true
+                            onClicked: backend.requestNetworkPermissions()
+                        }
+
+                        Button {
+                            text: "刷新"
+                            enabled: !backend.busy
+                            Layout.fillWidth: true
+                            onClicked: backend.refreshNetworkState()
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                radius: 16
+                color: window.card
+                border.color: window.line
+                implicitHeight: formLayout.implicitHeight + 28
+
+                ColumnLayout {
+                    id: formLayout
+                    anchors.fill: parent
+                    anchors.margins: 14
                     spacing: 14
 
                     Label {
+                        text: "账号配置"
+                        color: window.ink
+                        font.pixelSize: 16
+                        font.bold: true
+                    }
+
+                    Label {
+                        text: "教师账号填写后会优先使用教师登录。"
+                        color: window.muted
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    Label {
                         text: "学生账号"
-                        color: "#111827"
-                        font.pixelSize: 17
+                        color: window.ink
+                        font.pixelSize: 14
                         font.bold: true
                     }
 
@@ -218,13 +346,13 @@ ApplicationWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         height: 1
-                        color: "#EAECF0"
+                        color: window.line
                     }
 
                     Label {
                         text: "教师账号"
-                        color: "#111827"
-                        font.pixelSize: 17
+                        color: window.ink
+                        font.pixelSize: 14
                         font.bold: true
                     }
 
@@ -268,8 +396,8 @@ ApplicationWindow {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: 20
-                Layout.rightMargin: 20
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
                 spacing: 12
 
                 Button {
@@ -280,7 +408,7 @@ ApplicationWindow {
                 }
 
                 Button {
-                    text: backend.busy ? "登录中..." : "登录"
+                    text: backend.busy ? "登录中..." : "立即登录"
                     enabled: !backend.busy
                     highlighted: true
                     Layout.fillWidth: true
@@ -290,12 +418,12 @@ ApplicationWindow {
 
             Label {
                 text: "当前版本会在前台定时识别 WiFi 并自动登录；后续会继续加入前台服务和 APK 更新下载。"
-                color: "#667085"
+                color: window.muted
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
-                Layout.leftMargin: 20
-                Layout.rightMargin: 20
+                Layout.leftMargin: 18
+                Layout.rightMargin: 18
                 Layout.bottomMargin: 24
             }
         }
