@@ -3,14 +3,60 @@
 #include "credentialstore.h"
 
 #include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QNetworkRequest>
 #include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
 
+#ifdef Q_OS_ANDROID
+#include <QJniEnvironment>
+#include <QJniObject>
+#include <QtCore/qcoreapplication_platform.h>
+#endif
+
 namespace {
 constexpr char kStudentLoginUrl[] = "http://10.255.0.19/a79.htm";
 constexpr char kTeacherLoginUrl[] = "http://10.255.0.19/drcom/login";
+constexpr int kNetworkRefreshIntervalMs = 15000;
+constexpr int kAutoLoginCooldownSeconds = 45;
+
+#ifdef Q_OS_ANDROID
+constexpr char kAndroidNetworkHelperClass[] = "top/mengxun/austwifi/NetworkStateHelper";
+
+QString callAndroidNetworkState()
+{
+    const auto context = QNativeInterface::QAndroidApplication::context();
+    const QJniObject result = QJniObject::callStaticObjectMethod(
+        kAndroidNetworkHelperClass,
+        "networkState",
+        "(Landroid/content/Context;)Ljava/lang/String;",
+        context.object<jobject>());
+
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions(QJniEnvironment::OutputMode::Silent) || !result.isValid()) {
+        return {};
+    }
+    return result.toString();
+}
+
+bool requestAndroidNetworkPermissions()
+{
+    const auto context = QNativeInterface::QAndroidApplication::context();
+    const jboolean requested = QJniObject::callStaticMethod<jboolean>(
+        kAndroidNetworkHelperClass,
+        "requestNetworkPermissions",
+        "(Landroid/content/Context;)Z",
+        context.object<jobject>());
+
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions(QJniEnvironment::OutputMode::Silent)) {
+        return false;
+    }
+    return requested;
+}
+#endif
 }
 
 MobileBackend::MobileBackend(QObject *parent)
@@ -18,6 +64,9 @@ MobileBackend::MobileBackend(QObject *parent)
     , m_settings("AUST_WIFI", "Android")
 {
     loadConfig();
+    connect(&m_networkRefreshTimer, &QTimer::timeout, this, &MobileBackend::refreshNetworkState);
+    m_networkRefreshTimer.start(kNetworkRefreshIntervalMs);
+    QTimer::singleShot(400, this, &MobileBackend::refreshNetworkState);
     QTimer::singleShot(1200, this, &MobileBackend::runStartupAutoLogin);
 }
 
@@ -72,9 +121,34 @@ QString MobileBackend::credentialBackendText() const
     return QStringLiteral("密码存储：%1").arg(CredentialStore::backendName());
 }
 
+QString MobileBackend::networkStatusText() const
+{
+    return m_networkStatusText;
+}
+
+QString MobileBackend::currentSsid() const
+{
+    return m_currentSsid;
+}
+
 bool MobileBackend::autoLoginOnLaunch() const
 {
     return m_autoLoginOnLaunch;
+}
+
+bool MobileBackend::autoLoginOnlyOnCampusWifi() const
+{
+    return m_autoLoginOnlyOnCampusWifi;
+}
+
+bool MobileBackend::wifiConnected() const
+{
+    return m_wifiConnected;
+}
+
+bool MobileBackend::campusWifiDetected() const
+{
+    return m_campusWifiDetected;
 }
 
 bool MobileBackend::busy() const
@@ -139,6 +213,18 @@ void MobileBackend::setAutoLoginOnLaunch(bool value)
     emit configChanged();
 }
 
+void MobileBackend::setAutoLoginOnlyOnCampusWifi(bool value)
+{
+    if (m_autoLoginOnlyOnCampusWifi == value) {
+        return;
+    }
+    m_autoLoginOnlyOnCampusWifi = value;
+    m_settings.setValue("autoLogin/onlyCampusWifi", m_autoLoginOnlyOnCampusWifi);
+    m_settings.sync();
+    emit configChanged();
+    evaluateAutoLoginSchedule();
+}
+
 void MobileBackend::loadConfig()
 {
     CredentialStore credentials(&m_settings);
@@ -151,6 +237,7 @@ void MobileBackend::loadConfig()
     m_teacherUser = m_settings.value("teacher/user").toString();
     m_teacherPassword = credentials.password("teacher");
     m_autoLoginOnLaunch = m_settings.value("autoLogin/onLaunch", false).toBool();
+    m_autoLoginOnlyOnCampusWifi = m_settings.value("autoLogin/onlyCampusWifi", true).toBool();
 
     emit configChanged();
 }
@@ -169,6 +256,7 @@ bool MobileBackend::saveConfig()
     m_settings.setValue("teacher/user", m_teacherUser.trimmed());
     m_settings.setValue("teacher/server", "jzg");
     m_settings.setValue("autoLogin/onLaunch", m_autoLoginOnLaunch);
+    m_settings.setValue("autoLogin/onlyCampusWifi", m_autoLoginOnlyOnCampusWifi);
     if (!credentials.setPassword("teacher", m_teacherPassword)) {
         setStatusText(QStringLiteral("教师密码保存失败"));
         return false;
@@ -214,6 +302,76 @@ void MobileBackend::cancelLogin()
     }
     clearReply();
     setBusy(false);
+}
+
+void MobileBackend::refreshNetworkState()
+{
+#ifdef Q_OS_ANDROID
+    const QString stateJson = callAndroidNetworkState();
+    if (stateJson.isEmpty()) {
+        m_networkStatusText = QStringLiteral("无法读取 Android 网络状态");
+        emit networkStateChanged();
+        return;
+    }
+
+    const QJsonDocument document = QJsonDocument::fromJson(stateJson.toUtf8());
+    const QJsonObject object = document.object();
+    const bool wifiConnected = object.value("wifiConnected").toBool(false);
+    const QString ssid = object.value("ssid").toString();
+    const QString missingPermissions = object.value("missingPermissions").toString();
+    const bool canReadSsid = object.value("canReadSsid").toBool(false);
+    const bool campusWifiDetected = isCampusWifiSsid(ssid);
+
+    QString status;
+    if (!missingPermissions.isEmpty()) {
+        status = QStringLiteral("需要授权%1后才能识别当前 WiFi").arg(missingPermissions);
+    } else if (!wifiConnected) {
+        status = QStringLiteral("当前未连接 WiFi");
+    } else if (!canReadSsid) {
+        status = QStringLiteral("已连接 WiFi，但系统未返回 SSID");
+    } else if (campusWifiDetected) {
+        status = QStringLiteral("已连接校园 WiFi：%1").arg(ssid);
+    } else {
+        status = QStringLiteral("当前 WiFi：%1").arg(ssid);
+    }
+
+    const bool changed = m_wifiConnected != wifiConnected
+        || m_currentSsid != ssid
+        || m_missingNetworkPermissions != missingPermissions
+        || m_campusWifiDetected != campusWifiDetected
+        || m_networkStatusText != status;
+
+    m_wifiConnected = wifiConnected;
+    m_currentSsid = ssid;
+    m_missingNetworkPermissions = missingPermissions;
+    m_campusWifiDetected = campusWifiDetected;
+    m_networkStatusText = status;
+
+    if (changed) {
+        emit networkStateChanged();
+    }
+    evaluateAutoLoginSchedule();
+#else
+    m_networkStatusText = QStringLiteral("网络状态识别仅 Android 端可用");
+    emit networkStateChanged();
+#endif
+}
+
+void MobileBackend::requestNetworkPermissions()
+{
+#ifdef Q_OS_ANDROID
+    const bool requested = requestAndroidNetworkPermissions();
+    if (requested) {
+        setStatusText(QStringLiteral("已请求 WiFi 识别权限，请在系统弹窗中允许"));
+    } else if (m_missingNetworkPermissions.isEmpty()) {
+        setStatusText(QStringLiteral("WiFi 识别权限已具备"));
+    } else {
+        setStatusText(QStringLiteral("无法弹出权限请求，请到系统设置中允许：%1").arg(m_missingNetworkPermissions));
+    }
+    QTimer::singleShot(2500, this, &MobileBackend::refreshNetworkState);
+#else
+    setStatusText(QStringLiteral("网络权限请求仅 Android 端可用"));
+#endif
 }
 
 QUrlQuery MobileBackend::buildLoginQuery(const QString &user, const QString &server, const QString &password)
@@ -304,9 +462,49 @@ void MobileBackend::runStartupAutoLogin()
         setStatusText(QStringLiteral("启动自动登录已开启，请先填写并保存账号"));
         return;
     }
+    if (m_autoLoginOnlyOnCampusWifi && !m_campusWifiDetected) {
+        setStatusText(QStringLiteral("启动自动登录已开启，等待连接校园 WiFi"));
+        return;
+    }
 
     setStatusText(QStringLiteral("启动自动登录中..."));
+    m_lastAutoLoginAttempt = QDateTime::currentDateTime();
     login();
+}
+
+void MobileBackend::evaluateAutoLoginSchedule()
+{
+    if (!m_autoLoginOnLaunch || m_busy || !hasUsableCredentials()) {
+        return;
+    }
+    if (!m_wifiConnected) {
+        return;
+    }
+    if (m_autoLoginOnlyOnCampusWifi && !m_campusWifiDetected) {
+        return;
+    }
+
+    const QDateTime now = QDateTime::currentDateTime();
+    if (m_lastAutoLoginAttempt.isValid() &&
+        m_lastAutoLoginAttempt.secsTo(now) < kAutoLoginCooldownSeconds) {
+        return;
+    }
+    if (m_lastSuccessfulLogin.isValid() &&
+        m_lastSuccessfulLogin.secsTo(now) < kAutoLoginCooldownSeconds) {
+        return;
+    }
+
+    m_lastAutoLoginAttempt = now;
+    setStatusText(QStringLiteral("检测到可用 WiFi，正在自动登录..."));
+    login();
+}
+
+bool MobileBackend::isCampusWifiSsid(const QString &ssid)
+{
+    const QString normalized = ssid.trimmed();
+    return normalized.compare(QStringLiteral("AUST_Student"), Qt::CaseInsensitive) == 0
+        || normalized.compare(QStringLiteral("AUST_Faculty"), Qt::CaseInsensitive) == 0
+        || normalized.startsWith(QStringLiteral("AUST"), Qt::CaseInsensitive);
 }
 
 void MobileBackend::finishLogin()
@@ -341,6 +539,7 @@ void MobileBackend::finishLogin()
 
     m_settings.setValue("lastLoginTime", QDateTime::currentDateTime());
     m_settings.sync();
+    m_lastSuccessfulLogin = QDateTime::currentDateTime();
 
     const QString accountType = m_loginMode == LoginMode::Teacher ? QStringLiteral("教师") : QStringLiteral("学生");
     setStatusText(QStringLiteral("%1账号登录成功").arg(accountType));

@@ -119,6 +119,33 @@ ApplicationWindow {
                         Layout.fillWidth: true
                     }
 
+                    Label {
+                        text: backend.networkStatusText
+                        color: backend.campusWifiDetected ? "#047857" : "#667085"
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Button {
+                            text: "授权识别 WiFi"
+                            enabled: !backend.busy
+                            Layout.fillWidth: true
+                            onClicked: backend.requestNetworkPermissions()
+                        }
+
+                        Button {
+                            text: "刷新"
+                            enabled: !backend.busy
+                            Layout.fillWidth: true
+                            onClicked: backend.refreshNetworkState()
+                        }
+                    }
+
                     ProgressBar {
                         visible: backend.busy
                         indeterminate: true
@@ -229,6 +256,13 @@ ApplicationWindow {
                         enabled: !backend.busy
                         onToggled: backend.autoLoginOnLaunch = checked
                     }
+
+                    Switch {
+                        text: "仅校园 WiFi 自动登录"
+                        checked: backend.autoLoginOnlyOnCampusWifi
+                        enabled: !backend.busy && backend.autoLoginOnLaunch
+                        onToggled: backend.autoLoginOnlyOnCampusWifi = checked
+                    }
                 }
             }
 
@@ -255,7 +289,7 @@ ApplicationWindow {
             }
 
             Label {
-                text: "后续会继续加入 WiFi SSID 识别、运行时权限申请、前台服务和 APK 更新下载。"
+                text: "当前版本会在前台定时识别 WiFi 并自动登录；后续会继续加入前台服务和 APK 更新下载。"
                 color: "#667085"
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap

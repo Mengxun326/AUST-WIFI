@@ -24,10 +24,11 @@ RESOURCES += \
     qml.qrc
 
 ANDROID_PACKAGE_SOURCE_DIR = $$PWD/android
-ANDROID_VERSION_CODE = 2
-ANDROID_VERSION_NAME = 0.2.0
+ANDROID_VERSION_CODE = 3
+ANDROID_VERSION_NAME = 0.3.0
 
 OTHER_FILES += \
     android/AndroidManifest.xml \
+    android/src/top/mengxun/austwifi/NetworkStateHelper.java \
     android/src/top/mengxun/austwifi/SecureCredentialStore.java \
     qml/Main.qml

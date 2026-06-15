@@ -9,6 +9,9 @@ campus-network login request.
 - Uses the teacher account first when both teacher user and password are filled.
 - Falls back to the student account and selected carrier server.
 - Supports optional login on app launch.
+- Refreshes foreground WiFi status every 15 seconds and can auto-login only on
+  recognized campus WiFi.
+- Requests Android WiFi-identification permissions from the app UI.
 - Uses the same login endpoint family as the desktop app.
 - Allows cleartext HTTP traffic because the campus gateway is `http://10.255.0.19`.
 - Stores passwords through Android Keystore backed AES-GCM encryption.
@@ -47,7 +50,7 @@ release download was unstable on this machine.
 
 ## Next Mobile Milestones
 
-- Add WiFi SSID/network-state detection and automatic login scheduling.
+- Add a foreground service for background auto-login.
 - Add a signed release APK build path.
 - Add an APK update manifest on `meng-xun.top`.
 - Add device-side testing notes and screenshots.

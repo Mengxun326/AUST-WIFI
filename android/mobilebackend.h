@@ -5,6 +5,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QSettings>
+#include <QTimer>
 #include <QUrlQuery>
 
 class MobileBackend : public QObject
@@ -18,7 +19,12 @@ class MobileBackend : public QObject
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusChanged)
     Q_PROPERTY(QString activeAccountText READ activeAccountText NOTIFY configChanged)
     Q_PROPERTY(QString credentialBackendText READ credentialBackendText NOTIFY configChanged)
+    Q_PROPERTY(QString networkStatusText READ networkStatusText NOTIFY networkStateChanged)
+    Q_PROPERTY(QString currentSsid READ currentSsid NOTIFY networkStateChanged)
     Q_PROPERTY(bool autoLoginOnLaunch READ autoLoginOnLaunch WRITE setAutoLoginOnLaunch NOTIFY configChanged)
+    Q_PROPERTY(bool autoLoginOnlyOnCampusWifi READ autoLoginOnlyOnCampusWifi WRITE setAutoLoginOnlyOnCampusWifi NOTIFY configChanged)
+    Q_PROPERTY(bool wifiConnected READ wifiConnected NOTIFY networkStateChanged)
+    Q_PROPERTY(bool campusWifiDetected READ campusWifiDetected NOTIFY networkStateChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
 
 public:
@@ -33,7 +39,12 @@ public:
     QString statusText() const;
     QString activeAccountText() const;
     QString credentialBackendText() const;
+    QString networkStatusText() const;
+    QString currentSsid() const;
     bool autoLoginOnLaunch() const;
+    bool autoLoginOnlyOnCampusWifi() const;
+    bool wifiConnected() const;
+    bool campusWifiDetected() const;
     bool busy() const;
 
     void setStudentUser(const QString &value);
@@ -42,15 +53,19 @@ public:
     void setTeacherUser(const QString &value);
     void setTeacherPassword(const QString &value);
     void setAutoLoginOnLaunch(bool value);
+    void setAutoLoginOnlyOnCampusWifi(bool value);
 
     Q_INVOKABLE void loadConfig();
     Q_INVOKABLE bool saveConfig();
     Q_INVOKABLE void login();
     Q_INVOKABLE void cancelLogin();
+    Q_INVOKABLE void refreshNetworkState();
+    Q_INVOKABLE void requestNetworkPermissions();
 
 signals:
     void configChanged();
     void statusChanged();
+    void networkStateChanged();
     void busyChanged();
     void loginSucceeded(const QString &message);
     void loginFailed(const QString &message);
@@ -68,12 +83,15 @@ private:
     void startTeacherLogin(const QString &user, const QString &password);
     bool hasUsableCredentials() const;
     void runStartupAutoLogin();
+    void evaluateAutoLoginSchedule();
+    static bool isCampusWifiSsid(const QString &ssid);
     void finishLogin();
     bool responseLooksSuccessful(const QString &response) const;
     void clearReply();
 
     QSettings m_settings;
     QNetworkAccessManager m_networkManager;
+    QTimer m_networkRefreshTimer;
     QNetworkReply *m_reply = nullptr;
     LoginMode m_loginMode = LoginMode::Student;
 
@@ -83,7 +101,15 @@ private:
     QString m_teacherUser;
     QString m_teacherPassword;
     QString m_statusText = QStringLiteral("准备就绪");
+    QString m_networkStatusText = QStringLiteral("正在检测网络状态...");
+    QString m_currentSsid;
+    QString m_missingNetworkPermissions;
+    QDateTime m_lastAutoLoginAttempt;
+    QDateTime m_lastSuccessfulLogin;
     bool m_autoLoginOnLaunch = false;
+    bool m_autoLoginOnlyOnCampusWifi = true;
+    bool m_wifiConnected = false;
+    bool m_campusWifiDetected = false;
     bool m_busy = false;
 };
 
