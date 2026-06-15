@@ -48,6 +48,16 @@ The debug APK is generated at:
 build\android-arm64\android-build\AUST_WIFI_ANDROID.apk
 ```
 
+Release packaging, signing, update manifest generation, and optional server
+upload are handled by:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release-android.ps1 -Notes "Android update notes."
+```
+
+See `docs\ANDROID_RELEASE.md` for first-time signing key setup and upload
+commands.
+
 Qt's Gradle wrapper uses Gradle 9.3.1. The build script points the generated
 wrapper to the Huawei Cloud Gradle mirror by default because the official GitHub
 release download was unstable on this machine.
@@ -56,6 +66,5 @@ release download was unstable on this machine.
 
 - Harden service restart behavior when Android recreates the service before the
   Qt runtime is fully initialized.
-- Add a signed release APK build path.
-- Add an APK update manifest on `meng-xun.top`.
+- Add Android in-app APK update checking and download/install handoff.
 - Add device-side testing notes and screenshots.

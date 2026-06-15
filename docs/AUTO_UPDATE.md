@@ -218,3 +218,27 @@ https://www.meng-xun.top/aust-wifi/releases/AUST-WIFI-Setup-版本号.exe
 ```
 
 然后在旧版本客户端中点击托盘菜单的“检查更新”。如果 `latest` 大于旧客户端的 `APP_VERSION`，应该弹出更新提示。
+
+## Android APK 发布
+
+Android 端使用独立的更新清单，默认地址为：
+
+```text
+https://www.meng-xun.top/aust-wifi/android/update.json
+https://www.meng-xun.top/aust-wifi/android/releases/AUST-WIFI-Android-版本号.apk
+```
+
+发布脚本：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release-android.ps1 `
+  -Notes "填写本次 Android 更新说明。"
+```
+
+首次正式发布前需要生成并妥善备份 Android release keystore：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\new-android-signing-key.ps1
+```
+
+详细步骤见 `docs\ANDROID_RELEASE.md`。

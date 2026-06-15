@@ -6,6 +6,8 @@ param(
     [string]$Abi = "arm64-v8a",
     [string]$AndroidPlatform = "android-35",
     [string]$AndroidBuildToolsVersion = "36.0.0",
+    [ValidateSet("Debug", "Release")]
+    [string]$BuildType = "Debug",
     [string]$GradleDistributionUrl = "https://mirrors.huaweicloud.com/gradle/gradle-9.3.1-bin.zip"
 )
 
@@ -50,8 +52,14 @@ $buildDir = Join-Path $repoRoot "build\android-arm64"
 $projectFile = Join-Path $repoRoot "android\AUST_WIFI_ANDROID.pro"
 $androidBuildDir = Join-Path $buildDir "android-build"
 $deploymentSettings = Join-Path $buildDir "android-AUST_WIFI_ANDROID-deployment-settings.json"
-$copiedApk = Join-Path $androidBuildDir "AUST_WIFI_ANDROID.apk"
-$gradleApk = Join-Path $androidBuildDir "build\outputs\apk\debug\android-build-debug.apk"
+$gradleTask = "assemble$BuildType"
+if ($BuildType -eq "Debug") {
+    $copiedApk = Join-Path $androidBuildDir "AUST_WIFI_ANDROID.apk"
+    $gradleApk = Join-Path $androidBuildDir "build\outputs\apk\debug\android-build-debug.apk"
+} else {
+    $copiedApk = Join-Path $androidBuildDir "AUST_WIFI_ANDROID-release-unsigned.apk"
+    $gradleApk = Join-Path $androidBuildDir "build\outputs\apk\release\android-build-release-unsigned.apk"
+}
 
 if ($Abi -ne "arm64-v8a") {
     throw "This script currently targets arm64-v8a because the qmake kit path is Qt android_arm64_v8a."
@@ -109,7 +117,7 @@ if (Test-Path $gradleProperties) {
     Set-Content -Encoding ASCII -Path $gradleProperties -Value $content
 }
 
-Invoke-Logged (Join-Path $androidBuildDir "gradlew.bat") @("--no-daemon", "assembleDebug") $androidBuildDir
+Invoke-Logged (Join-Path $androidBuildDir "gradlew.bat") @("--no-daemon", $gradleTask) $androidBuildDir
 
 if (-not (Test-Path $gradleApk)) {
     throw "APK was not generated: $gradleApk"

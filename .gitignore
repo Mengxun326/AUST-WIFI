@@ -44,6 +44,8 @@ installer/
 .qtcreator/
 *.pro.user
 secrets/
+*.jks
+*.keystore
 
 # debug information files
 *.dwo
