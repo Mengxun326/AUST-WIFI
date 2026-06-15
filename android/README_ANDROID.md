@@ -9,12 +9,13 @@ campus-network login request.
 - Uses the teacher account first when both teacher user and password are filled.
 - Falls back to the student account and selected carrier server.
 - Supports optional login on app launch.
-- Refreshes foreground WiFi status every 15 seconds and can auto-login only on
-  recognized campus WiFi.
+- Refreshes WiFi status every 15 seconds in the app foreground, or from the
+  foreground guardian service when background guarding is enabled.
 - Requests Android WiFi-identification permissions from the app UI.
 - Uses the shared app logo for Android launcher icons and the mobile header.
 - Provides a foreground guardian service toggle with notification permission
-  request UI.
+  request UI. The service now sends periodic guard ticks into the Qt backend,
+  reusing the existing WiFi detection and auto-login scheduler.
 - Uses the same login endpoint family as the desktop app.
 - Allows cleartext HTTP traffic because the campus gateway is `http://10.255.0.19`.
 - Stores passwords through Android Keystore backed AES-GCM encryption.
@@ -53,7 +54,8 @@ release download was unstable on this machine.
 
 ## Next Mobile Milestones
 
-- Move WiFi polling and login scheduling into the foreground service.
+- Harden service restart behavior when Android recreates the service before the
+  Qt runtime is fully initialized.
 - Add a signed release APK build path.
 - Add an APK update manifest on `meng-xun.top`.
 - Add device-side testing notes and screenshots.

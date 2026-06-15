@@ -5,7 +5,9 @@
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMetaObject>
 #include <QNetworkRequest>
+#include <QTime>
 #include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
@@ -14,6 +16,8 @@
 #include <QJniEnvironment>
 #include <QJniObject>
 #include <QtCore/qcoreapplication_platform.h>
+#include <atomic>
+#include <jni.h>
 #endif
 
 namespace {
@@ -25,6 +29,7 @@ constexpr int kAutoLoginCooldownSeconds = 45;
 #ifdef Q_OS_ANDROID
 constexpr char kAndroidNetworkHelperClass[] = "top/mengxun/austwifi/NetworkStateHelper";
 constexpr char kAndroidForegroundServiceClass[] = "top/mengxun/austwifi/AustWifiForegroundService";
+std::atomic<MobileBackend *> s_mobileBackend = nullptr;
 
 QString callAndroidNetworkState()
 {
@@ -76,13 +81,30 @@ bool callAndroidForegroundServiceMethod(const char *methodName)
 #endif
 }
 
+#ifdef Q_OS_ANDROID
+extern "C" JNIEXPORT void JNICALL
+Java_top_mengxun_austwifi_AustWifiForegroundService_nativeGuardTick(JNIEnv *, jclass)
+{
+    MobileBackend *backend = s_mobileBackend.load(std::memory_order_acquire);
+    if (!backend) {
+        return;
+    }
+
+    QMetaObject::invokeMethod(backend, "handleBackgroundServiceTick", Qt::QueuedConnection);
+}
+#endif
+
 MobileBackend::MobileBackend(QObject *parent)
     : QObject(parent)
     , m_settings("AUST_WIFI", "Android")
 {
+#ifdef Q_OS_ANDROID
+    s_mobileBackend.store(this, std::memory_order_release);
+#endif
+
     loadConfig();
     connect(&m_networkRefreshTimer, &QTimer::timeout, this, &MobileBackend::refreshNetworkState);
-    m_networkRefreshTimer.start(kNetworkRefreshIntervalMs);
+    updateNetworkRefreshTimer();
     QTimer::singleShot(400, this, &MobileBackend::refreshNetworkState);
     QTimer::singleShot(600, this, &MobileBackend::refreshNotificationPermission);
     QTimer::singleShot(900, this, &MobileBackend::syncBackgroundServiceState);
@@ -92,6 +114,11 @@ MobileBackend::MobileBackend(QObject *parent)
 MobileBackend::~MobileBackend()
 {
     cancelLogin();
+#ifdef Q_OS_ANDROID
+    if (s_mobileBackend.load(std::memory_order_acquire) == this) {
+        s_mobileBackend.store(nullptr, std::memory_order_release);
+    }
+#endif
 }
 
 QString MobileBackend::studentUser() const
@@ -268,6 +295,7 @@ void MobileBackend::setBackgroundServiceEnabled(bool value)
     m_settings.setValue("backgroundService/enabled", m_backgroundServiceEnabled);
     m_settings.sync();
     emit serviceStateChanged();
+    updateNetworkRefreshTimer();
     syncBackgroundServiceState();
 }
 
@@ -566,6 +594,19 @@ void MobileBackend::evaluateAutoLoginSchedule()
     login();
 }
 
+void MobileBackend::handleBackgroundServiceTick()
+{
+    if (!m_backgroundServiceEnabled) {
+        return;
+    }
+
+    m_lastServiceTick = QDateTime::currentDateTime();
+    setBackgroundServiceStatusText(
+        QStringLiteral("后台守护服务运行中，%1 已检查 WiFi")
+            .arg(m_lastServiceTick.time().toString(QStringLiteral("HH:mm:ss"))));
+    refreshNetworkState();
+}
+
 void MobileBackend::syncBackgroundServiceState()
 {
 #ifdef Q_OS_ANDROID
@@ -573,22 +614,36 @@ void MobileBackend::syncBackgroundServiceState()
     if (m_backgroundServiceEnabled) {
         const bool started = callAndroidForegroundServiceMethod("start");
         setBackgroundServiceStatusText(started
-            ? QStringLiteral("后台守护服务运行中")
+            ? QStringLiteral("后台守护服务运行中，正在定时检查 WiFi")
             : QStringLiteral("后台守护服务启动失败，请检查通知权限"));
         if (!started) {
             m_backgroundServiceEnabled = false;
             m_settings.setValue("backgroundService/enabled", false);
             m_settings.sync();
+            updateNetworkRefreshTimer();
             emit serviceStateChanged();
         }
         return;
     }
 
     callAndroidForegroundServiceMethod("stop");
+    updateNetworkRefreshTimer();
     setBackgroundServiceStatusText(QStringLiteral("后台守护服务未开启"));
 #else
     setBackgroundServiceStatusText(QStringLiteral("后台守护服务仅 Android 端可用"));
 #endif
+}
+
+void MobileBackend::updateNetworkRefreshTimer()
+{
+    if (m_backgroundServiceEnabled) {
+        m_networkRefreshTimer.stop();
+        return;
+    }
+
+    if (!m_networkRefreshTimer.isActive()) {
+        m_networkRefreshTimer.start(kNetworkRefreshIntervalMs);
+    }
 }
 
 void MobileBackend::refreshNotificationPermission()

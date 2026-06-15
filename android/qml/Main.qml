@@ -266,7 +266,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "当前阶段先保持前台服务运行；后台自动登录逻辑会在下一阶段接入服务侧。"
+                        text: "前台服务会定时检查 WiFi；开启自动登录后，可在后台触发校园网登录。"
                         color: window.muted
                         font.pixelSize: 12
                         wrapMode: Text.WordWrap
@@ -463,7 +463,7 @@ ApplicationWindow {
                     }
 
                     Switch {
-                        text: "启动后自动登录"
+                        text: "自动登录（启动和后台检测）"
                         checked: backend.autoLoginOnLaunch
                         enabled: !backend.busy
                         onToggled: backend.autoLoginOnLaunch = checked
@@ -501,7 +501,7 @@ ApplicationWindow {
             }
 
             Label {
-                text: "当前版本会在前台定时识别 WiFi 并自动登录；后续会继续加入前台服务和 APK 更新下载。"
+                text: "当前版本可通过前台服务定时识别 WiFi 并自动登录；后续会继续完善签名发布和 APK 更新下载。"
                 color: window.muted
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap

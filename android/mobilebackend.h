@@ -80,6 +80,9 @@ signals:
     void loginSucceeded(const QString &message);
     void loginFailed(const QString &message);
 
+private slots:
+    void handleBackgroundServiceTick();
+
 private:
     enum class LoginMode {
         Student,
@@ -95,6 +98,7 @@ private:
     void runStartupAutoLogin();
     void evaluateAutoLoginSchedule();
     void syncBackgroundServiceState();
+    void updateNetworkRefreshTimer();
     void refreshNotificationPermission();
     void setBackgroundServiceStatusText(const QString &value);
     static bool isCampusWifiSsid(const QString &ssid);
@@ -120,6 +124,7 @@ private:
     QString m_missingNetworkPermissions;
     QDateTime m_lastAutoLoginAttempt;
     QDateTime m_lastSuccessfulLogin;
+    QDateTime m_lastServiceTick;
     bool m_autoLoginOnLaunch = false;
     bool m_autoLoginOnlyOnCampusWifi = true;
     bool m_backgroundServiceEnabled = false;
