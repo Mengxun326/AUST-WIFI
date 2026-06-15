@@ -242,3 +242,5 @@ powershell -ExecutionPolicy Bypass -File .\scripts\new-android-signing-key.ps1
 ```
 
 详细步骤见 `docs\ANDROID_RELEASE.md`。
+
+Android 客户端会在启动后自动检查该清单，也可以在“应用更新”卡片中手动检查。发现更高 `version_code` 后，客户端会下载 APK、校验 SHA-256，并交给 Android 系统安装器完成安装。

@@ -112,4 +112,6 @@ https://www.meng-xun.top/aust-wifi/android/update.json
 https://www.meng-xun.top/aust-wifi/android/releases/AUST-WIFI-Android-版本号.apk
 ```
 
-下一步可以在 Android 应用内接入该清单，实现“检测新版 APK、下载、调用系统安装器”的完整更新体验。
+Android 应用会读取该清单，按 `version_code` 判断是否存在新版本，下载 APK 后校验 `sha256`，然后调用系统安装器。手机首次安装站外 APK 时，需要在系统设置中允许 AUST WiFi“安装未知应用”。
+
+正式更新必须使用同一个 release keystore 签名。debug APK、unsigned APK、或不同证书签名的 APK，都不能覆盖安装到已安装的正式版本上。

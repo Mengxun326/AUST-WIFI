@@ -2,11 +2,15 @@
 
 #include "credentialstore.h"
 
+#include <QCryptographicHash>
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
 #include <QNetworkRequest>
+#include <QStandardPaths>
 #include <QTime>
 #include <QTimer>
 #include <QUrl>
@@ -25,10 +29,13 @@ constexpr char kStudentLoginUrl[] = "http://10.255.0.19/a79.htm";
 constexpr char kTeacherLoginUrl[] = "http://10.255.0.19/drcom/login";
 constexpr int kNetworkRefreshIntervalMs = 15000;
 constexpr int kAutoLoginCooldownSeconds = 45;
+constexpr char kAndroidUpdateManifestUrl[] = "https://www.meng-xun.top/aust-wifi/android/update.json";
+constexpr char kAndroidPackageName[] = "top.mengxun.austwifi";
 
 #ifdef Q_OS_ANDROID
 constexpr char kAndroidNetworkHelperClass[] = "top/mengxun/austwifi/NetworkStateHelper";
 constexpr char kAndroidForegroundServiceClass[] = "top/mengxun/austwifi/AustWifiForegroundService";
+constexpr char kAndroidApkUpdateHelperClass[] = "top/mengxun/austwifi/ApkUpdateHelper";
 std::atomic<MobileBackend *> s_mobileBackend = nullptr;
 
 QString callAndroidNetworkState()
@@ -78,6 +85,56 @@ bool callAndroidForegroundServiceMethod(const char *methodName)
     }
     return ok;
 }
+
+QString callAndroidApkUpdateStringMethod(const char *methodName)
+{
+    const auto context = QNativeInterface::QAndroidApplication::context();
+    const QJniObject result = QJniObject::callStaticObjectMethod(
+        kAndroidApkUpdateHelperClass,
+        methodName,
+        "(Landroid/content/Context;)Ljava/lang/String;",
+        context.object<jobject>());
+
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions(QJniEnvironment::OutputMode::Silent) || !result.isValid()) {
+        return {};
+    }
+    return result.toString();
+}
+
+bool callAndroidApkUpdateBoolMethod(const char *methodName)
+{
+    const auto context = QNativeInterface::QAndroidApplication::context();
+    const jboolean ok = QJniObject::callStaticMethod<jboolean>(
+        kAndroidApkUpdateHelperClass,
+        methodName,
+        "(Landroid/content/Context;)Z",
+        context.object<jobject>());
+
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions(QJniEnvironment::OutputMode::Silent)) {
+        return false;
+    }
+    return ok;
+}
+
+bool callAndroidInstallApk(const QString &apkPath)
+{
+    const auto context = QNativeInterface::QAndroidApplication::context();
+    const QJniObject pathArg = QJniObject::fromString(apkPath);
+    const jboolean ok = QJniObject::callStaticMethod<jboolean>(
+        kAndroidApkUpdateHelperClass,
+        "installApk",
+        "(Landroid/content/Context;Ljava/lang/String;)Z",
+        context.object<jobject>(),
+        pathArg.object<jstring>());
+
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions(QJniEnvironment::OutputMode::Silent)) {
+        return false;
+    }
+    return ok;
+}
 #endif
 }
 
@@ -103,17 +160,21 @@ MobileBackend::MobileBackend(QObject *parent)
 #endif
 
     loadConfig();
+    refreshCurrentAppVersion();
     connect(&m_networkRefreshTimer, &QTimer::timeout, this, &MobileBackend::refreshNetworkState);
     updateNetworkRefreshTimer();
     QTimer::singleShot(400, this, &MobileBackend::refreshNetworkState);
     QTimer::singleShot(600, this, &MobileBackend::refreshNotificationPermission);
+    QTimer::singleShot(700, this, &MobileBackend::refreshInstallPermission);
     QTimer::singleShot(900, this, &MobileBackend::syncBackgroundServiceState);
     QTimer::singleShot(1200, this, &MobileBackend::runStartupAutoLogin);
+    QTimer::singleShot(1800, this, &MobileBackend::checkForUpdates);
 }
 
 MobileBackend::~MobileBackend()
 {
     cancelLogin();
+    clearUpdateReplies();
 #ifdef Q_OS_ANDROID
     if (s_mobileBackend.load(std::memory_order_acquire) == this) {
         s_mobileBackend.store(nullptr, std::memory_order_release);
@@ -210,6 +271,36 @@ bool MobileBackend::notificationPermissionGranted() const
 QString MobileBackend::backgroundServiceStatusText() const
 {
     return m_backgroundServiceStatusText;
+}
+
+QString MobileBackend::updateStatusText() const
+{
+    return m_updateStatusText;
+}
+
+QString MobileBackend::updateVersionText() const
+{
+    return m_updateVersionText;
+}
+
+bool MobileBackend::updateAvailable() const
+{
+    return m_updateAvailable;
+}
+
+bool MobileBackend::updateBusy() const
+{
+    return m_updateBusy;
+}
+
+bool MobileBackend::installPermissionGranted() const
+{
+    return m_installPermissionGranted;
+}
+
+qreal MobileBackend::updateDownloadProgress() const
+{
+    return m_updateDownloadProgress;
 }
 
 bool MobileBackend::busy() const
@@ -469,6 +560,123 @@ void MobileBackend::requestNotificationPermission()
 #endif
 }
 
+void MobileBackend::checkForUpdates()
+{
+    if (m_updateBusy) {
+        return;
+    }
+
+    if (m_updateManifestReply) {
+        disconnect(m_updateManifestReply, nullptr, this, nullptr);
+        m_updateManifestReply->deleteLater();
+        m_updateManifestReply = nullptr;
+    }
+
+    refreshCurrentAppVersion();
+    refreshInstallPermission();
+    m_updateAvailable = false;
+    m_updateLatestVersion.clear();
+    m_updateVersionCode = 0;
+    m_updateNotes.clear();
+    m_updateUrl.clear();
+    m_updateSha256.clear();
+    m_updateSize = 0;
+    m_updateDownloadProgress = 0.0;
+    setUpdateBusy(true);
+    setUpdateStatusText(QStringLiteral("正在检查 Android 更新..."));
+    emit updateStateChanged();
+
+    QNetworkRequest request(QUrl(QString::fromLatin1(kAndroidUpdateManifestUrl)));
+    request.setHeader(QNetworkRequest::UserAgentHeader, "AUST-WiFi-Android-Updater");
+    request.setRawHeader("Cache-Control", "no-cache");
+    request.setTransferTimeout(15000);
+
+    m_updateManifestReply = m_updateNetworkManager.get(request);
+    connect(m_updateManifestReply, &QNetworkReply::finished, this, &MobileBackend::finishUpdateCheck);
+}
+
+void MobileBackend::downloadAndInstallUpdate()
+{
+    if (m_updateBusy) {
+        return;
+    }
+
+    refreshInstallPermission();
+    if (!m_installPermissionGranted) {
+        setUpdateStatusText(QStringLiteral("请先允许本应用安装未知来源 APK"));
+        openInstallPermissionSettings();
+        return;
+    }
+
+    if (!m_pendingApkPath.isEmpty() && QFile::exists(m_pendingApkPath)) {
+        installDownloadedUpdate();
+        return;
+    }
+
+    if (!m_updateAvailable || m_updateUrl.isEmpty()) {
+        setUpdateStatusText(QStringLiteral("暂无可下载的新版本，请先检查更新"));
+        return;
+    }
+
+    const QUrl url(m_updateUrl);
+    if (!url.isValid() || url.scheme().compare(QStringLiteral("https"), Qt::CaseInsensitive) != 0) {
+        setUpdateStatusText(QStringLiteral("更新下载地址无效，已拒绝下载"));
+        return;
+    }
+    if (m_updateSha256.size() != 64) {
+        setUpdateStatusText(QStringLiteral("更新清单缺少有效 SHA-256，已拒绝下载"));
+        return;
+    }
+
+    if (m_updateDownloadReply) {
+        disconnect(m_updateDownloadReply, nullptr, this, nullptr);
+        m_updateDownloadReply->deleteLater();
+        m_updateDownloadReply = nullptr;
+    }
+
+    const QString cacheRoot = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    const QString updateDir = QDir(cacheRoot).filePath(QStringLiteral("updates"));
+    if (!QDir().mkpath(updateDir)) {
+        setUpdateStatusText(QStringLiteral("无法创建 APK 下载目录"));
+        return;
+    }
+
+    const QString safeVersion = m_updateLatestVersion.isEmpty() ? QStringLiteral("latest") : m_updateLatestVersion;
+    m_pendingApkPath = QDir(updateDir).filePath(QStringLiteral("AUST-WIFI-Android-%1.apk").arg(safeVersion));
+    QFile::remove(m_pendingApkPath);
+
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::UserAgentHeader, "AUST-WiFi-Android-Updater");
+    request.setTransferTimeout(120000);
+
+    m_updateDownloadProgress = 0.0;
+    setUpdateBusy(true);
+    setUpdateStatusText(QStringLiteral("正在下载 Android 更新..."));
+    emit updateStateChanged();
+
+    m_updateDownloadReply = m_updateNetworkManager.get(request);
+    connect(m_updateDownloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+        if (total > 0) {
+            m_updateDownloadProgress = qBound<qreal>(0.0, static_cast<qreal>(received) / static_cast<qreal>(total), 1.0);
+            emit updateStateChanged();
+        }
+    });
+    connect(m_updateDownloadReply, &QNetworkReply::finished, this, &MobileBackend::finishUpdateDownload);
+}
+
+void MobileBackend::openInstallPermissionSettings()
+{
+#ifdef Q_OS_ANDROID
+    const bool opened = callAndroidApkUpdateBoolMethod("openInstallPermissionSettings");
+    setUpdateStatusText(opened
+        ? QStringLiteral("请在系统设置中允许 AUST WiFi 安装未知应用")
+        : QStringLiteral("无法打开安装权限设置，请在系统设置中手动允许"));
+    QTimer::singleShot(3000, this, &MobileBackend::refreshInstallPermission);
+#else
+    setUpdateStatusText(QStringLiteral("安装权限设置仅 Android 端可用"));
+#endif
+}
+
 QUrlQuery MobileBackend::buildLoginQuery(const QString &user, const QString &server, const QString &password)
 {
     QUrlQuery query;
@@ -594,6 +802,129 @@ void MobileBackend::evaluateAutoLoginSchedule()
     login();
 }
 
+void MobileBackend::finishUpdateCheck()
+{
+    QNetworkReply *reply = m_updateManifestReply;
+    m_updateManifestReply = nullptr;
+    setUpdateBusy(false);
+
+    if (!reply) {
+        setUpdateStatusText(QStringLiteral("更新检查状态异常"));
+        return;
+    }
+
+    const QNetworkReply::NetworkError error = reply->error();
+    const QString errorText = reply->errorString();
+    const QByteArray payload = reply->readAll();
+    reply->deleteLater();
+
+    if (error != QNetworkReply::NoError) {
+        setUpdateStatusText(QStringLiteral("更新检查失败：%1").arg(errorText));
+        return;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(payload, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        setUpdateStatusText(QStringLiteral("更新清单格式无效"));
+        return;
+    }
+
+    const QJsonObject object = document.object();
+    const QString platform = object.value(QStringLiteral("platform")).toString();
+    const QString packageName = object.value(QStringLiteral("package")).toString();
+    const int versionCode = object.value(QStringLiteral("version_code")).toInt();
+    const QString latest = object.value(QStringLiteral("latest")).toString();
+    const QString url = object.value(QStringLiteral("url")).toString();
+    const QString sha256 = object.value(QStringLiteral("sha256")).toString().trimmed().toLower();
+    const qint64 size = static_cast<qint64>(object.value(QStringLiteral("size")).toDouble());
+    const QString notes = object.value(QStringLiteral("notes")).toString();
+
+    if (platform != QStringLiteral("android") || packageName != QString::fromLatin1(kAndroidPackageName)) {
+        setUpdateStatusText(QStringLiteral("更新清单不属于当前 Android 应用"));
+        return;
+    }
+    if (versionCode <= 0 || latest.isEmpty()) {
+        setUpdateStatusText(QStringLiteral("更新清单缺少版本信息"));
+        return;
+    }
+
+    m_updateLatestVersion = latest;
+    m_updateVersionCode = versionCode;
+    m_updateNotes = notes;
+    m_updateUrl = url;
+    m_updateSha256 = sha256;
+    m_updateSize = size;
+    m_pendingApkPath.clear();
+
+    if (versionCode <= m_currentVersionCode) {
+        m_updateAvailable = false;
+        setUpdateStatusText(QStringLiteral("当前已是最新 Android 版本"));
+        emit updateStateChanged();
+        return;
+    }
+
+    m_updateAvailable = true;
+    setUpdateStatusText(QStringLiteral("发现新版本 %1（%2），可下载更新").arg(latest).arg(versionCode));
+    emit updateStateChanged();
+}
+
+void MobileBackend::finishUpdateDownload()
+{
+    QNetworkReply *reply = m_updateDownloadReply;
+    m_updateDownloadReply = nullptr;
+    setUpdateBusy(false);
+
+    if (!reply) {
+        setUpdateStatusText(QStringLiteral("更新下载状态异常"));
+        return;
+    }
+
+    const QNetworkReply::NetworkError error = reply->error();
+    const QString errorText = reply->errorString();
+    const QByteArray data = reply->readAll();
+    reply->deleteLater();
+
+    if (error != QNetworkReply::NoError) {
+        setUpdateStatusText(QStringLiteral("更新下载失败：%1").arg(errorText));
+        QFile::remove(m_pendingApkPath);
+        return;
+    }
+
+    const QString actualHash = QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex());
+    if (!m_updateSha256.isEmpty() && actualHash.compare(m_updateSha256, Qt::CaseInsensitive) != 0) {
+        setUpdateStatusText(QStringLiteral("APK 校验失败，已取消安装"));
+        QFile::remove(m_pendingApkPath);
+        m_pendingApkPath.clear();
+        return;
+    }
+    if (m_updateSize > 0 && data.size() != m_updateSize) {
+        setUpdateStatusText(QStringLiteral("APK 大小不一致，已取消安装"));
+        QFile::remove(m_pendingApkPath);
+        m_pendingApkPath.clear();
+        return;
+    }
+
+    QFile file(m_pendingApkPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        setUpdateStatusText(QStringLiteral("无法保存下载的 APK"));
+        m_pendingApkPath.clear();
+        return;
+    }
+    if (file.write(data) != data.size()) {
+        file.close();
+        QFile::remove(m_pendingApkPath);
+        m_pendingApkPath.clear();
+        setUpdateStatusText(QStringLiteral("APK 写入不完整，已取消安装"));
+        return;
+    }
+    file.close();
+
+    m_updateDownloadProgress = 1.0;
+    emit updateStateChanged();
+    installDownloadedUpdate();
+}
+
 void MobileBackend::handleBackgroundServiceTick()
 {
     if (!m_backgroundServiceEnabled) {
@@ -670,6 +1001,110 @@ void MobileBackend::setBackgroundServiceStatusText(const QString &value)
     }
     m_backgroundServiceStatusText = value;
     emit serviceStateChanged();
+}
+
+void MobileBackend::refreshInstallPermission()
+{
+#ifdef Q_OS_ANDROID
+    const bool granted = callAndroidApkUpdateBoolMethod("canInstallPackages");
+    if (m_installPermissionGranted == granted) {
+        return;
+    }
+    m_installPermissionGranted = granted;
+    emit updateStateChanged();
+#else
+    if (!m_installPermissionGranted) {
+        m_installPermissionGranted = true;
+        emit updateStateChanged();
+    }
+#endif
+}
+
+void MobileBackend::refreshCurrentAppVersion()
+{
+#ifdef Q_OS_ANDROID
+    const QString versionJson = callAndroidApkUpdateStringMethod("versionInfo");
+    const QJsonDocument document = QJsonDocument::fromJson(versionJson.toUtf8());
+    const QJsonObject object = document.object();
+    const QString versionName = object.value(QStringLiteral("versionName")).toString();
+    const int versionCode = object.value(QStringLiteral("versionCode")).toInt();
+    if (!versionName.isEmpty()) {
+        m_currentVersionName = versionName;
+    }
+    if (versionCode > 0) {
+        m_currentVersionCode = versionCode;
+    }
+#else
+    if (m_currentVersionName.isEmpty()) {
+        m_currentVersionName = QStringLiteral("unknown");
+    }
+#endif
+
+    const QString name = m_currentVersionName.isEmpty() ? QStringLiteral("unknown") : m_currentVersionName;
+    const QString versionText = QStringLiteral("当前版本：%1（%2）").arg(name).arg(m_currentVersionCode);
+    if (m_updateVersionText != versionText) {
+        m_updateVersionText = versionText;
+        emit updateStateChanged();
+    }
+}
+
+void MobileBackend::setUpdateStatusText(const QString &value)
+{
+    if (m_updateStatusText == value) {
+        return;
+    }
+    m_updateStatusText = value;
+    emit updateStateChanged();
+}
+
+void MobileBackend::setUpdateBusy(bool value)
+{
+    if (m_updateBusy == value) {
+        return;
+    }
+    m_updateBusy = value;
+    emit updateStateChanged();
+}
+
+bool MobileBackend::installDownloadedUpdate()
+{
+    if (m_pendingApkPath.isEmpty() || !QFile::exists(m_pendingApkPath)) {
+        setUpdateStatusText(QStringLiteral("未找到已下载的 APK"));
+        return false;
+    }
+
+    refreshInstallPermission();
+    if (!m_installPermissionGranted) {
+        setUpdateStatusText(QStringLiteral("APK 已下载，请允许安装未知应用后再次安装"));
+        openInstallPermissionSettings();
+        return false;
+    }
+
+#ifdef Q_OS_ANDROID
+    const bool started = callAndroidInstallApk(m_pendingApkPath);
+    setUpdateStatusText(started
+        ? QStringLiteral("已打开系统安装器，请按提示完成安装")
+        : QStringLiteral("无法打开系统安装器"));
+    return started;
+#else
+    setUpdateStatusText(QStringLiteral("APK 安装仅 Android 端可用"));
+    return false;
+#endif
+}
+
+void MobileBackend::clearUpdateReplies()
+{
+    if (m_updateManifestReply) {
+        disconnect(m_updateManifestReply, nullptr, this, nullptr);
+        m_updateManifestReply->deleteLater();
+        m_updateManifestReply = nullptr;
+    }
+    if (m_updateDownloadReply) {
+        disconnect(m_updateDownloadReply, nullptr, this, nullptr);
+        m_updateDownloadReply->deleteLater();
+        m_updateDownloadReply = nullptr;
+    }
+    setUpdateBusy(false);
 }
 
 bool MobileBackend::isCampusWifiSsid(const QString &ssid)

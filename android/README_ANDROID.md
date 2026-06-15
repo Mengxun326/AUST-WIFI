@@ -16,6 +16,8 @@ campus-network login request.
 - Provides a foreground guardian service toggle with notification permission
   request UI. The service now sends periodic guard ticks into the Qt backend,
   reusing the existing WiFi detection and auto-login scheduler.
+- Checks the Android update manifest, compares APK `versionCode`, downloads a
+  newer APK, verifies SHA-256, and hands it off to Android's system installer.
 - Uses the same login endpoint family as the desktop app.
 - Allows cleartext HTTP traffic because the campus gateway is `http://10.255.0.19`.
 - Stores passwords through Android Keystore backed AES-GCM encryption.
@@ -66,5 +68,5 @@ release download was unstable on this machine.
 
 - Harden service restart behavior when Android recreates the service before the
   Qt runtime is fully initialized.
-- Add Android in-app APK update checking and download/install handoff.
+- Add signed Android release testing notes.
 - Add device-side testing notes and screenshots.

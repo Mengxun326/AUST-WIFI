@@ -197,6 +197,105 @@ ApplicationWindow {
                 Layout.rightMargin: 16
                 radius: 16
                 color: window.card
+                border.color: backend.updateAvailable ? "#BFDBFE" : window.line
+                implicitHeight: updateLayout.implicitHeight + 28
+
+                ColumnLayout {
+                    id: updateLayout
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 12
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+
+                            Label {
+                                text: "应用更新"
+                                color: window.ink
+                                font.pixelSize: 16
+                                font.bold: true
+                            }
+
+                            Label {
+                                text: backend.updateStatusText
+                                color: backend.updateAvailable ? window.blue : window.muted
+                                font.pixelSize: 13
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        Rectangle {
+                            radius: 999
+                            color: backend.updateAvailable ? "#E8F0FF" : "#F2F4F7"
+                            implicitWidth: updateChip.implicitWidth + 18
+                            implicitHeight: 28
+
+                            Label {
+                                id: updateChip
+                                anchors.centerIn: parent
+                                text: backend.updateAvailable ? "有新版本" : "当前版本"
+                                color: backend.updateAvailable ? window.blue : window.muted
+                                font.pixelSize: 12
+                                font.bold: true
+                            }
+                        }
+                    }
+
+                    Label {
+                        text: backend.updateVersionText
+                        color: window.muted
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    ProgressBar {
+                        visible: backend.updateBusy && backend.updateDownloadProgress > 0
+                        from: 0
+                        to: 1
+                        value: backend.updateDownloadProgress
+                        Layout.fillWidth: true
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Button {
+                            text: "检查更新"
+                            enabled: !backend.updateBusy
+                            Layout.fillWidth: true
+                            onClicked: backend.checkForUpdates()
+                        }
+
+                        Button {
+                            text: backend.installPermissionGranted ? "下载并安装" : "安装授权"
+                            enabled: !backend.updateBusy && (backend.updateAvailable || !backend.installPermissionGranted)
+                            highlighted: backend.updateAvailable
+                            Layout.fillWidth: true
+                            onClicked: {
+                                if (backend.installPermissionGranted) {
+                                    backend.downloadAndInstallUpdate()
+                                } else {
+                                    backend.openInstallPermissionSettings()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                radius: 16
+                color: window.card
                 border.color: backend.backgroundServiceEnabled ? "#BFDBFE" : window.line
                 implicitHeight: guardLayout.implicitHeight + 28
 
@@ -501,7 +600,7 @@ ApplicationWindow {
             }
 
             Label {
-                text: "当前版本可通过前台服务定时识别 WiFi 并自动登录；后续会继续完善签名发布和 APK 更新下载。"
+                text: "当前版本可通过前台服务定时识别 WiFi 并自动登录，也可检查服务器上的新版 APK。"
                 color: window.muted
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
