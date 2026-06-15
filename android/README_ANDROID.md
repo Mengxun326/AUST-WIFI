@@ -13,6 +13,8 @@ campus-network login request.
   recognized campus WiFi.
 - Requests Android WiFi-identification permissions from the app UI.
 - Uses the shared app logo for Android launcher icons and the mobile header.
+- Provides a foreground guardian service toggle with notification permission
+  request UI.
 - Uses the same login endpoint family as the desktop app.
 - Allows cleartext HTTP traffic because the campus gateway is `http://10.255.0.19`.
 - Stores passwords through Android Keystore backed AES-GCM encryption.
@@ -51,7 +53,7 @@ release download was unstable on this machine.
 
 ## Next Mobile Milestones
 
-- Add a foreground service for background auto-login.
+- Move WiFi polling and login scheduling into the foreground service.
 - Add a signed release APK build path.
 - Add an APK update manifest on `meng-xun.top`.
 - Add device-side testing notes and screenshots.

@@ -197,6 +197,90 @@ ApplicationWindow {
                 Layout.rightMargin: 16
                 radius: 16
                 color: window.card
+                border.color: backend.backgroundServiceEnabled ? "#BFDBFE" : window.line
+                implicitHeight: guardLayout.implicitHeight + 28
+
+                ColumnLayout {
+                    id: guardLayout
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 12
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+
+                            Label {
+                                text: "后台守护"
+                                color: window.ink
+                                font.pixelSize: 16
+                                font.bold: true
+                            }
+
+                            Label {
+                                text: backend.backgroundServiceStatusText
+                                color: backend.backgroundServiceEnabled ? window.blue : window.muted
+                                font.pixelSize: 13
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        Rectangle {
+                            radius: 999
+                            color: backend.notificationPermissionGranted ? "#ECFDF3" : "#FEF3C7"
+                            implicitWidth: noticeChip.implicitWidth + 18
+                            implicitHeight: 28
+
+                            Label {
+                                id: noticeChip
+                                anchors.centerIn: parent
+                                text: backend.notificationPermissionGranted ? "通知已允许" : "需通知权限"
+                                color: backend.notificationPermissionGranted ? window.green : window.amber
+                                font.pixelSize: 12
+                                font.bold: true
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Button {
+                            text: "通知授权"
+                            enabled: !backend.notificationPermissionGranted
+                            Layout.fillWidth: true
+                            onClicked: backend.requestNotificationPermission()
+                        }
+
+                        Switch {
+                            text: "开启守护"
+                            checked: backend.backgroundServiceEnabled
+                            Layout.fillWidth: true
+                            onToggled: backend.backgroundServiceEnabled = checked
+                        }
+                    }
+
+                    Label {
+                        text: "当前阶段先保持前台服务运行；后台自动登录逻辑会在下一阶段接入服务侧。"
+                        color: window.muted
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                radius: 16
+                color: window.card
                 border.color: backend.campusWifiDetected ? "#A7F3D0" : window.line
                 implicitHeight: networkLayout.implicitHeight + 28
 

@@ -24,6 +24,7 @@ constexpr int kAutoLoginCooldownSeconds = 45;
 
 #ifdef Q_OS_ANDROID
 constexpr char kAndroidNetworkHelperClass[] = "top/mengxun/austwifi/NetworkStateHelper";
+constexpr char kAndroidForegroundServiceClass[] = "top/mengxun/austwifi/AustWifiForegroundService";
 
 QString callAndroidNetworkState()
 {
@@ -56,6 +57,22 @@ bool requestAndroidNetworkPermissions()
     }
     return requested;
 }
+
+bool callAndroidForegroundServiceMethod(const char *methodName)
+{
+    const auto context = QNativeInterface::QAndroidApplication::context();
+    const jboolean ok = QJniObject::callStaticMethod<jboolean>(
+        kAndroidForegroundServiceClass,
+        methodName,
+        "(Landroid/content/Context;)Z",
+        context.object<jobject>());
+
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions(QJniEnvironment::OutputMode::Silent)) {
+        return false;
+    }
+    return ok;
+}
 #endif
 }
 
@@ -67,6 +84,8 @@ MobileBackend::MobileBackend(QObject *parent)
     connect(&m_networkRefreshTimer, &QTimer::timeout, this, &MobileBackend::refreshNetworkState);
     m_networkRefreshTimer.start(kNetworkRefreshIntervalMs);
     QTimer::singleShot(400, this, &MobileBackend::refreshNetworkState);
+    QTimer::singleShot(600, this, &MobileBackend::refreshNotificationPermission);
+    QTimer::singleShot(900, this, &MobileBackend::syncBackgroundServiceState);
     QTimer::singleShot(1200, this, &MobileBackend::runStartupAutoLogin);
 }
 
@@ -151,6 +170,21 @@ bool MobileBackend::campusWifiDetected() const
     return m_campusWifiDetected;
 }
 
+bool MobileBackend::backgroundServiceEnabled() const
+{
+    return m_backgroundServiceEnabled;
+}
+
+bool MobileBackend::notificationPermissionGranted() const
+{
+    return m_notificationPermissionGranted;
+}
+
+QString MobileBackend::backgroundServiceStatusText() const
+{
+    return m_backgroundServiceStatusText;
+}
+
 bool MobileBackend::busy() const
 {
     return m_busy;
@@ -225,6 +259,18 @@ void MobileBackend::setAutoLoginOnlyOnCampusWifi(bool value)
     evaluateAutoLoginSchedule();
 }
 
+void MobileBackend::setBackgroundServiceEnabled(bool value)
+{
+    if (m_backgroundServiceEnabled == value) {
+        return;
+    }
+    m_backgroundServiceEnabled = value;
+    m_settings.setValue("backgroundService/enabled", m_backgroundServiceEnabled);
+    m_settings.sync();
+    emit serviceStateChanged();
+    syncBackgroundServiceState();
+}
+
 void MobileBackend::loadConfig()
 {
     CredentialStore credentials(&m_settings);
@@ -238,8 +284,10 @@ void MobileBackend::loadConfig()
     m_teacherPassword = credentials.password("teacher");
     m_autoLoginOnLaunch = m_settings.value("autoLogin/onLaunch", false).toBool();
     m_autoLoginOnlyOnCampusWifi = m_settings.value("autoLogin/onlyCampusWifi", true).toBool();
+    m_backgroundServiceEnabled = m_settings.value("backgroundService/enabled", false).toBool();
 
     emit configChanged();
+    emit serviceStateChanged();
 }
 
 bool MobileBackend::saveConfig()
@@ -257,6 +305,7 @@ bool MobileBackend::saveConfig()
     m_settings.setValue("teacher/server", "jzg");
     m_settings.setValue("autoLogin/onLaunch", m_autoLoginOnLaunch);
     m_settings.setValue("autoLogin/onlyCampusWifi", m_autoLoginOnlyOnCampusWifi);
+    m_settings.setValue("backgroundService/enabled", m_backgroundServiceEnabled);
     if (!credentials.setPassword("teacher", m_teacherPassword)) {
         setStatusText(QStringLiteral("教师密码保存失败"));
         return false;
@@ -371,6 +420,24 @@ void MobileBackend::requestNetworkPermissions()
     QTimer::singleShot(2500, this, &MobileBackend::refreshNetworkState);
 #else
     setStatusText(QStringLiteral("网络权限请求仅 Android 端可用"));
+#endif
+}
+
+void MobileBackend::requestNotificationPermission()
+{
+#ifdef Q_OS_ANDROID
+    const bool requested = callAndroidForegroundServiceMethod("requestNotificationPermission");
+    refreshNotificationPermission();
+    if (requested) {
+        setStatusText(QStringLiteral("已请求通知权限，请在系统弹窗中允许"));
+    } else if (m_notificationPermissionGranted) {
+        setStatusText(QStringLiteral("通知权限已具备"));
+    } else {
+        setStatusText(QStringLiteral("无法弹出通知权限请求，请到系统设置中允许通知"));
+    }
+    QTimer::singleShot(2500, this, &MobileBackend::refreshNotificationPermission);
+#else
+    setStatusText(QStringLiteral("通知权限请求仅 Android 端可用"));
 #endif
 }
 
@@ -497,6 +564,57 @@ void MobileBackend::evaluateAutoLoginSchedule()
     m_lastAutoLoginAttempt = now;
     setStatusText(QStringLiteral("检测到可用 WiFi，正在自动登录..."));
     login();
+}
+
+void MobileBackend::syncBackgroundServiceState()
+{
+#ifdef Q_OS_ANDROID
+    refreshNotificationPermission();
+    if (m_backgroundServiceEnabled) {
+        const bool started = callAndroidForegroundServiceMethod("start");
+        setBackgroundServiceStatusText(started
+            ? QStringLiteral("后台守护服务运行中")
+            : QStringLiteral("后台守护服务启动失败，请检查通知权限"));
+        if (!started) {
+            m_backgroundServiceEnabled = false;
+            m_settings.setValue("backgroundService/enabled", false);
+            m_settings.sync();
+            emit serviceStateChanged();
+        }
+        return;
+    }
+
+    callAndroidForegroundServiceMethod("stop");
+    setBackgroundServiceStatusText(QStringLiteral("后台守护服务未开启"));
+#else
+    setBackgroundServiceStatusText(QStringLiteral("后台守护服务仅 Android 端可用"));
+#endif
+}
+
+void MobileBackend::refreshNotificationPermission()
+{
+#ifdef Q_OS_ANDROID
+    const bool granted = callAndroidForegroundServiceMethod("hasNotificationPermission");
+    if (m_notificationPermissionGranted == granted) {
+        return;
+    }
+    m_notificationPermissionGranted = granted;
+    emit serviceStateChanged();
+#else
+    if (!m_notificationPermissionGranted) {
+        m_notificationPermissionGranted = true;
+        emit serviceStateChanged();
+    }
+#endif
+}
+
+void MobileBackend::setBackgroundServiceStatusText(const QString &value)
+{
+    if (m_backgroundServiceStatusText == value) {
+        return;
+    }
+    m_backgroundServiceStatusText = value;
+    emit serviceStateChanged();
 }
 
 bool MobileBackend::isCampusWifiSsid(const QString &ssid)
