@@ -65,6 +65,40 @@ public final class ApkUpdateHelper {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    public static String apkInfo(Context context, String apkPath) {
+        JSONObject json = new JSONObject();
+        try {
+            if (context == null || apkPath == null || apkPath.trim().isEmpty()) {
+                return json.toString();
+            }
+
+            PackageInfo packageInfo = context.getPackageManager()
+                    .getPackageArchiveInfo(apkPath, 0);
+            if (packageInfo == null) {
+                json.put("error", "InvalidApk");
+                return json.toString();
+            }
+
+            long versionCode;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                versionCode = packageInfo.getLongVersionCode();
+            } else {
+                versionCode = packageInfo.versionCode;
+            }
+
+            json.put("packageName", packageInfo.packageName == null ? "" : packageInfo.packageName);
+            json.put("versionName", packageInfo.versionName == null ? "" : packageInfo.versionName);
+            json.put("versionCode", versionCode);
+        } catch (Exception e) {
+            try {
+                json.put("error", e.getClass().getSimpleName());
+            } catch (Exception ignored) {
+            }
+        }
+        return json.toString();
+    }
+
     public static boolean openInstallPermissionSettings(Context context) {
         if (context == null) {
             return false;

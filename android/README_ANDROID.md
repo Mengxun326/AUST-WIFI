@@ -1,8 +1,7 @@
-# Android MVP
+# Android App
 
-This folder contains the first Android port of AUST WiFi. It is a Qt Quick
-mobile MVP that can save student and teacher credentials and manually submit a
-campus-network login request.
+This folder contains the Android port of AUST WiFi. It is a Qt Quick mobile app
+for campus-network login, background guarding, and APK self-update handoff.
 
 ## Current Scope
 
@@ -66,7 +65,6 @@ release download was unstable on this machine.
 
 ## Next Mobile Milestones
 
-- Harden service restart behavior when Android recreates the service before the
-  Qt runtime is fully initialized.
-- Add signed Android release testing notes.
-- Add device-side testing notes and screenshots.
+- Broaden real-device regression testing across Android vendors.
+- Add device-side screenshots for the user manual.
+- Consider a smaller update-card release notes view after v1.0.

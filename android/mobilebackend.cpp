@@ -118,6 +118,24 @@ bool callAndroidApkUpdateBoolMethod(const char *methodName)
     return ok;
 }
 
+QString callAndroidApkUpdateStringPathMethod(const char *methodName, const QString &path)
+{
+    const auto context = QNativeInterface::QAndroidApplication::context();
+    const QJniObject pathArg = QJniObject::fromString(path);
+    const QJniObject result = QJniObject::callStaticObjectMethod(
+        kAndroidApkUpdateHelperClass,
+        methodName,
+        "(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;",
+        context.object<jobject>(),
+        pathArg.object<jstring>());
+
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions(QJniEnvironment::OutputMode::Silent) || !result.isValid()) {
+        return {};
+    }
+    return result.toString();
+}
+
 bool callAndroidInstallApk(const QString &apkPath)
 {
     const auto context = QNativeInterface::QAndroidApplication::context();
@@ -839,6 +857,7 @@ void MobileBackend::finishUpdateCheck()
     const QString sha256 = object.value(QStringLiteral("sha256")).toString().trimmed().toLower();
     const qint64 size = static_cast<qint64>(object.value(QStringLiteral("size")).toDouble());
     const QString notes = object.value(QStringLiteral("notes")).toString();
+    const bool signedApk = object.value(QStringLiteral("signed")).toBool(false);
 
     if (platform != QStringLiteral("android") || packageName != QString::fromLatin1(kAndroidPackageName)) {
         setUpdateStatusText(QStringLiteral("更新清单不属于当前 Android 应用"));
@@ -846,6 +865,10 @@ void MobileBackend::finishUpdateCheck()
     }
     if (versionCode <= 0 || latest.isEmpty()) {
         setUpdateStatusText(QStringLiteral("更新清单缺少版本信息"));
+        return;
+    }
+    if (!signedApk) {
+        setUpdateStatusText(QStringLiteral("更新清单未标记为正式签名 APK，已拒绝"));
         return;
     }
 
@@ -919,6 +942,20 @@ void MobileBackend::finishUpdateDownload()
         return;
     }
     file.close();
+
+#ifdef Q_OS_ANDROID
+    const QString apkInfoJson = callAndroidApkUpdateStringPathMethod("apkInfo", m_pendingApkPath);
+    const QJsonDocument apkInfoDocument = QJsonDocument::fromJson(apkInfoJson.toUtf8());
+    const QJsonObject apkInfo = apkInfoDocument.object();
+    const QString apkPackageName = apkInfo.value(QStringLiteral("packageName")).toString();
+    const int apkVersionCode = apkInfo.value(QStringLiteral("versionCode")).toInt();
+    if (apkPackageName != QString::fromLatin1(kAndroidPackageName) || apkVersionCode != m_updateVersionCode) {
+        QFile::remove(m_pendingApkPath);
+        m_pendingApkPath.clear();
+        setUpdateStatusText(QStringLiteral("APK 包名或版本号不匹配，已取消安装"));
+        return;
+    }
+#endif
 
     m_updateDownloadProgress = 1.0;
     emit updateStateChanged();
