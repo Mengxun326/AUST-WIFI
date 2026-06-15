@@ -46,6 +46,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release-android.ps1 `
 
 脚本会执行 Qt Android Release 构建、`zipalign`、`apksigner`、签名校验、SHA-256 计算，并生成 `installer\android\update.json`。
 
+构建脚本会自动下载并打包 KDAB `android_openssl` 中的
+`libssl_3.so` / `libcrypto_3.so`。如果跳过该步骤，Android 端 HTTPS 更新
+检查可能出现 `TLS initialization failed`。
+
 如果只是验证构建和清单流程，可以生成未签名 APK：
 
 ```powershell

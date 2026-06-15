@@ -10,6 +10,8 @@ param(
     [string]$Abi = "arm64-v8a",
     [string]$AndroidPlatform = "android-35",
     [string]$AndroidBuildToolsVersion = "36.0.0",
+    [string]$AndroidOpenSslRoot,
+    [switch]$NoAndroidOpenSsl,
     [string]$GradleDistributionUrl = "https://mirrors.huaweicloud.com/gradle/gradle-9.3.1-bin.zip",
     [string]$KeystorePath = $env:AUST_WIFI_ANDROID_KEYSTORE,
     [string]$KeyAlias = $env:AUST_WIFI_ANDROID_KEY_ALIAS,
@@ -210,7 +212,7 @@ Write-Host "Version: $Version"
 Write-Host "Version code: $currentVersionCode"
 Write-Host "Build type: Release"
 
-Invoke-Checked "powershell" @(
+$buildArgs = @(
     "-ExecutionPolicy", "Bypass",
     "-File", $buildScript,
     "-QtVersionRoot", $QtVersionRoot,
@@ -220,9 +222,17 @@ Invoke-Checked "powershell" @(
     "-Abi", $Abi,
     "-AndroidPlatform", $AndroidPlatform,
     "-AndroidBuildToolsVersion", $AndroidBuildToolsVersion,
-    "-BuildType", "Release",
-    "-GradleDistributionUrl", $GradleDistributionUrl
-) $repoRoot
+    "-BuildType", "Release"
+)
+if (-not [string]::IsNullOrWhiteSpace($AndroidOpenSslRoot)) {
+    $buildArgs += @("-AndroidOpenSslRoot", $AndroidOpenSslRoot)
+}
+if ($NoAndroidOpenSsl) {
+    $buildArgs += "-NoAndroidOpenSsl"
+}
+$buildArgs += @("-GradleDistributionUrl", $GradleDistributionUrl)
+
+Invoke-Checked "powershell" $buildArgs $repoRoot
 
 if (-not (Test-Path $unsignedApk)) {
     throw "Release APK was not generated: $unsignedApk"

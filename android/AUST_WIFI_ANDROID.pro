@@ -23,9 +23,17 @@ HEADERS += \
 RESOURCES += \
     qml.qrc
 
+android {
+    android_openssl_root = $$(ANDROID_OPENSSL_ROOT)
+    !isEmpty(android_openssl_root) {
+        android_openssl_pri = $$clean_path($$android_openssl_root/openssl.pri)
+        exists($$android_openssl_pri): include($$android_openssl_pri)
+    }
+}
+
 ANDROID_PACKAGE_SOURCE_DIR = $$PWD/android
-ANDROID_VERSION_CODE = 10
-ANDROID_VERSION_NAME = 1.0.0
+ANDROID_VERSION_CODE = 11
+ANDROID_VERSION_NAME = 1.0.1
 
 OTHER_FILES += \
     android/AndroidManifest.xml \

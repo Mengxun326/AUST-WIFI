@@ -8,6 +8,8 @@ param(
     [string]$AndroidBuildToolsVersion = "36.0.0",
     [ValidateSet("Debug", "Release")]
     [string]$BuildType = "Debug",
+    [string]$AndroidOpenSslRoot,
+    [switch]$NoAndroidOpenSsl,
     [string]$GradleDistributionUrl = "https://mirrors.huaweicloud.com/gradle/gradle-9.3.1-bin.zip"
 )
 
@@ -45,6 +47,75 @@ function Invoke-Logged {
     } finally {
         Pop-Location
     }
+}
+
+function Ensure-AndroidOpenSsl {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [string]$PreferredRoot
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($PreferredRoot)) {
+        $fullPath = [System.IO.Path]::GetFullPath($PreferredRoot)
+        $priPath = Join-Path $fullPath "openssl.pri"
+        if (-not (Test-Path $priPath)) {
+            throw "Android OpenSSL root does not contain openssl.pri: $fullPath"
+        }
+        return $fullPath
+    }
+
+    $depsRoot = Join-Path $RepoRoot "build\android-openssl"
+    $pri = Join-Path $depsRoot "openssl.pri"
+    if (Test-Path $pri) {
+        return [System.IO.Path]::GetFullPath($depsRoot)
+    }
+
+    New-Item -ItemType Directory -Force (Join-Path $RepoRoot "build") | Out-Null
+
+    $git = Get-Command git.exe -ErrorAction SilentlyContinue
+    if (-not $git) {
+        $git = Get-Command git -ErrorAction SilentlyContinue
+    }
+
+    if ($git) {
+        if (Test-Path $depsRoot) {
+            Remove-Item -LiteralPath $depsRoot -Recurse -Force
+        }
+        Write-Host "Downloading Android OpenSSL libraries with git..."
+        & $git.Source clone --depth 1 "https://github.com/KDAB/android_openssl.git" $depsRoot
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $pri)) {
+            return [System.IO.Path]::GetFullPath($depsRoot)
+        }
+        Write-Warning "git clone for android_openssl failed, falling back to zip download."
+    }
+
+    $zipPath = Join-Path $RepoRoot "build\android-openssl.zip"
+    $extractDir = Join-Path $RepoRoot "build\android-openssl-extract"
+    foreach ($path in @($depsRoot, $zipPath, $extractDir)) {
+        if (Test-Path $path) {
+            Remove-Item -LiteralPath $path -Recurse -Force
+        }
+    }
+
+    Write-Host "Downloading Android OpenSSL libraries archive..."
+    Invoke-WebRequest `
+        -Uri "https://github.com/KDAB/android_openssl/archive/refs/heads/master.zip" `
+        -OutFile $zipPath `
+        -UseBasicParsing
+    Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force
+    $extractedRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
+    if (-not $extractedRoot) {
+        throw "Failed to extract Android OpenSSL archive."
+    }
+
+    Move-Item -LiteralPath $extractedRoot.FullName -Destination $depsRoot
+    Remove-Item -LiteralPath $zipPath -Force
+    Remove-Item -LiteralPath $extractDir -Recurse -Force
+
+    if (-not (Test-Path $pri)) {
+        throw "Android OpenSSL download did not produce openssl.pri: $pri"
+    }
+    return [System.IO.Path]::GetFullPath($depsRoot)
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -90,6 +161,15 @@ $env:ANDROID_NDK_PLATFORM = $AndroidPlatform
 $env:ANDROID_BUILD_TOOLS_REVISION = $AndroidBuildToolsVersion
 $env:SKIP_JDK_VERSION_CHECK = "1"
 $env:PATH = "$JavaHome\bin;$sdkRootForQt\platform-tools;E:\QT\Tools\mingw1310_64\bin;$env:PATH"
+
+if (-not $NoAndroidOpenSsl) {
+    $resolvedOpenSslRoot = Ensure-AndroidOpenSsl -RepoRoot $repoRoot -PreferredRoot $AndroidOpenSslRoot
+    $env:ANDROID_OPENSSL_ROOT = $resolvedOpenSslRoot.Replace("\", "/")
+    Write-Host "Android OpenSSL root: $env:ANDROID_OPENSSL_ROOT"
+} else {
+    Remove-Item Env:\ANDROID_OPENSSL_ROOT -ErrorAction SilentlyContinue
+    Write-Warning "Android OpenSSL packaging is disabled. HTTPS requests may fail on device."
+}
 
 Invoke-Logged $qmake @($projectFile) $buildDir
 Invoke-Logged $make @("apk_install_target") $buildDir

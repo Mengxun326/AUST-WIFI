@@ -63,6 +63,10 @@ Qt's Gradle wrapper uses Gradle 9.3.1. The build script points the generated
 wrapper to the Huawei Cloud Gradle mirror by default because the official GitHub
 release download was unstable on this machine.
 
+The build script automatically downloads KDAB's `android_openssl` package into
+`build\android-openssl` and packages `libssl_3.so` / `libcrypto_3.so` into the
+APK. This is required for Qt HTTPS requests such as Android update checks.
+
 ## Next Mobile Milestones
 
 - Broaden real-device regression testing across Android vendors.
