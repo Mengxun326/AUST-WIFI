@@ -4,6 +4,7 @@
 
 #include <QDateTime>
 #include <QNetworkRequest>
+#include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -17,6 +18,7 @@ MobileBackend::MobileBackend(QObject *parent)
     , m_settings("AUST_WIFI", "Android")
 {
     loadConfig();
+    QTimer::singleShot(1200, this, &MobileBackend::runStartupAutoLogin);
 }
 
 MobileBackend::~MobileBackend()
@@ -63,6 +65,16 @@ QString MobileBackend::activeAccountText() const
         return QStringLiteral("当前将使用学生账号登录");
     }
     return QStringLiteral("请先填写至少一套账号");
+}
+
+QString MobileBackend::credentialBackendText() const
+{
+    return QStringLiteral("密码存储：%1").arg(CredentialStore::backendName());
+}
+
+bool MobileBackend::autoLoginOnLaunch() const
+{
+    return m_autoLoginOnLaunch;
 }
 
 bool MobileBackend::busy() const
@@ -116,6 +128,17 @@ void MobileBackend::setTeacherPassword(const QString &value)
     emit configChanged();
 }
 
+void MobileBackend::setAutoLoginOnLaunch(bool value)
+{
+    if (m_autoLoginOnLaunch == value) {
+        return;
+    }
+    m_autoLoginOnLaunch = value;
+    m_settings.setValue("autoLogin/onLaunch", m_autoLoginOnLaunch);
+    m_settings.sync();
+    emit configChanged();
+}
+
 void MobileBackend::loadConfig()
 {
     CredentialStore credentials(&m_settings);
@@ -127,6 +150,7 @@ void MobileBackend::loadConfig()
     m_studentServer = m_settings.value("student/server", "aust").toString();
     m_teacherUser = m_settings.value("teacher/user").toString();
     m_teacherPassword = credentials.password("teacher");
+    m_autoLoginOnLaunch = m_settings.value("autoLogin/onLaunch", false).toBool();
 
     emit configChanged();
 }
@@ -144,6 +168,7 @@ bool MobileBackend::saveConfig()
 
     m_settings.setValue("teacher/user", m_teacherUser.trimmed());
     m_settings.setValue("teacher/server", "jzg");
+    m_settings.setValue("autoLogin/onLaunch", m_autoLoginOnLaunch);
     if (!credentials.setPassword("teacher", m_teacherPassword)) {
         setStatusText(QStringLiteral("教师密码保存失败"));
         return false;
@@ -260,6 +285,28 @@ void MobileBackend::startTeacherLogin(const QString &user, const QString &passwo
 
     m_reply = m_networkManager.get(request);
     connect(m_reply, &QNetworkReply::finished, this, &MobileBackend::finishLogin);
+}
+
+bool MobileBackend::hasUsableCredentials() const
+{
+    if (!m_teacherUser.trimmed().isEmpty() && !m_teacherPassword.isEmpty()) {
+        return true;
+    }
+    return !m_studentUser.trimmed().isEmpty() && !m_studentPassword.isEmpty();
+}
+
+void MobileBackend::runStartupAutoLogin()
+{
+    if (!m_autoLoginOnLaunch || m_busy) {
+        return;
+    }
+    if (!hasUsableCredentials()) {
+        setStatusText(QStringLiteral("启动自动登录已开启，请先填写并保存账号"));
+        return;
+    }
+
+    setStatusText(QStringLiteral("启动自动登录中..."));
+    login();
 }
 
 void MobileBackend::finishLogin()

@@ -63,7 +63,7 @@ ApplicationWindow {
             }
 
             Label {
-                text: "手机端 MVP：保存账号并手动登录校园网。教师账号填写后会优先使用教师登录。"
+                text: "手机端 MVP：保存账号，可手动或启动后自动登录校园网。教师账号填写后会优先使用教师登录。"
                 color: "#667085"
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
@@ -105,6 +105,14 @@ ApplicationWindow {
 
                     Label {
                         text: backend.activeAccountText
+                        color: "#667085"
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    Label {
+                        text: backend.credentialBackendText
                         color: "#667085"
                         font.pixelSize: 13
                         wrapMode: Text.WordWrap
@@ -214,6 +222,13 @@ ApplicationWindow {
                         checked: window.showPasswords
                         onToggled: window.showPasswords = checked
                     }
+
+                    Switch {
+                        text: "启动后自动登录"
+                        checked: backend.autoLoginOnLaunch
+                        enabled: !backend.busy
+                        onToggled: backend.autoLoginOnLaunch = checked
+                    }
                 }
             }
 
@@ -240,7 +255,7 @@ ApplicationWindow {
             }
 
             Label {
-                text: "下一阶段会加入 WiFi SSID 识别、运行时权限申请、前台服务和 APK 更新下载。"
+                text: "后续会继续加入 WiFi SSID 识别、运行时权限申请、前台服务和 APK 更新下载。"
                 color: "#667085"
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap

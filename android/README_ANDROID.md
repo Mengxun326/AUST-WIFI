@@ -8,11 +8,10 @@ campus-network login request.
 
 - Uses the teacher account first when both teacher user and password are filled.
 - Falls back to the student account and selected carrier server.
+- Supports optional login on app launch.
 - Uses the same login endpoint family as the desktop app.
 - Allows cleartext HTTP traffic because the campus gateway is `http://10.255.0.19`.
-- Stores passwords through the existing `CredentialStore`; Android currently uses
-  the non-Windows QSettings fallback, so this should be improved before a public
-  mobile release.
+- Stores passwords through Android Keystore backed AES-GCM encryption.
 
 ## Build Environment Used
 
@@ -48,7 +47,6 @@ release download was unstable on this machine.
 
 ## Next Mobile Milestones
 
-- Add Android Keystore based password storage.
 - Add WiFi SSID/network-state detection and automatic login scheduling.
 - Add a signed release APK build path.
 - Add an APK update manifest on `meng-xun.top`.

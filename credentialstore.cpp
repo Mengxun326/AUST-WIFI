@@ -3,10 +3,40 @@
 #include <QByteArray>
 #include <QSettings>
 
+#ifdef Q_OS_ANDROID
+#include <QJniEnvironment>
+#include <QJniObject>
+#endif
+
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <wincrypt.h>
 #endif
+
+namespace {
+#ifdef Q_OS_ANDROID
+constexpr char kAndroidCredentialStoreClass[] = "top/mengxun/austwifi/SecureCredentialStore";
+
+QString callAndroidCredentialMethod(const char *methodName, const QString &scope, const QString &value)
+{
+    const QJniObject scopeArg = QJniObject::fromString(scope);
+    const QJniObject valueArg = QJniObject::fromString(value);
+    const QJniObject result = QJniObject::callStaticObjectMethod(
+        kAndroidCredentialStoreClass,
+        methodName,
+        "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
+        scopeArg.object<jstring>(),
+        valueArg.object<jstring>());
+
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions(QJniEnvironment::OutputMode::Silent) || !result.isValid()) {
+        return {};
+    }
+
+    return result.toString();
+}
+#endif
+}
 
 CredentialStore::CredentialStore(QSettings *settings)
     : m_settings(settings)
@@ -38,6 +68,9 @@ bool CredentialStore::setPassword(const QString &scope, const QString &password)
         return true;
     }
 
+#ifdef Q_OS_ANDROID
+    return false;
+#else
 #ifndef Q_OS_WIN
     m_settings->setValue(legacyKey, password);
     m_settings->setValue(storageKey, backendName());
@@ -45,6 +78,7 @@ bool CredentialStore::setPassword(const QString &scope, const QString &password)
     return true;
 #else
     return false;
+#endif
 #endif
 }
 
@@ -97,19 +131,27 @@ void CredentialStore::migrateLegacyPassword(const QString &scope) const
 
 QString CredentialStore::backendName()
 {
+#ifdef Q_OS_ANDROID
+    return "Android Keystore";
+#else
 #ifdef Q_OS_WIN
     return "Windows DPAPI";
 #else
     return "QSettings fallback";
 #endif
+#endif
 }
 
 bool CredentialStore::secureBackendAvailable()
 {
+#ifdef Q_OS_ANDROID
+    return true;
+#else
 #ifdef Q_OS_WIN
     return true;
 #else
     return false;
+#endif
 #endif
 }
 
@@ -126,6 +168,16 @@ QByteArray CredentialStore::entropyFor(const QString &scope)
 
 bool CredentialStore::protectPassword(const QString &scope, const QString &password, QString *protectedValue)
 {
+#ifdef Q_OS_ANDROID
+    const QString encrypted = callAndroidCredentialMethod("encrypt", scope, password);
+    if (encrypted.isEmpty()) {
+        return false;
+    }
+    if (protectedValue) {
+        *protectedValue = encrypted;
+    }
+    return true;
+#else
 #ifndef Q_OS_WIN
     Q_UNUSED(scope)
     Q_UNUSED(password)
@@ -168,10 +220,21 @@ bool CredentialStore::protectPassword(const QString &scope, const QString &passw
     }
     return true;
 #endif
+#endif
 }
 
 bool CredentialStore::unprotectPassword(const QString &scope, const QString &protectedValue, QString *password)
 {
+#ifdef Q_OS_ANDROID
+    const QString decrypted = callAndroidCredentialMethod("decrypt", scope, protectedValue);
+    if (decrypted.isEmpty()) {
+        return false;
+    }
+    if (password) {
+        *password = decrypted;
+    }
+    return true;
+#else
 #ifndef Q_OS_WIN
     Q_UNUSED(scope)
     Q_UNUSED(protectedValue)
@@ -220,5 +283,6 @@ bool CredentialStore::unprotectPassword(const QString &scope, const QString &pro
         *password = QString::fromUtf8(plainBytes);
     }
     return true;
+#endif
 #endif
 }

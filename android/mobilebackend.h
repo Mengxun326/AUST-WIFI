@@ -17,6 +17,8 @@ class MobileBackend : public QObject
     Q_PROPERTY(QString teacherPassword READ teacherPassword WRITE setTeacherPassword NOTIFY configChanged)
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusChanged)
     Q_PROPERTY(QString activeAccountText READ activeAccountText NOTIFY configChanged)
+    Q_PROPERTY(QString credentialBackendText READ credentialBackendText NOTIFY configChanged)
+    Q_PROPERTY(bool autoLoginOnLaunch READ autoLoginOnLaunch WRITE setAutoLoginOnLaunch NOTIFY configChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
 
 public:
@@ -30,6 +32,8 @@ public:
     QString teacherPassword() const;
     QString statusText() const;
     QString activeAccountText() const;
+    QString credentialBackendText() const;
+    bool autoLoginOnLaunch() const;
     bool busy() const;
 
     void setStudentUser(const QString &value);
@@ -37,6 +41,7 @@ public:
     void setStudentServer(const QString &value);
     void setTeacherUser(const QString &value);
     void setTeacherPassword(const QString &value);
+    void setAutoLoginOnLaunch(bool value);
 
     Q_INVOKABLE void loadConfig();
     Q_INVOKABLE bool saveConfig();
@@ -61,6 +66,8 @@ private:
     void setBusy(bool value);
     void startStudentLogin(const QString &user, const QString &password, const QString &server);
     void startTeacherLogin(const QString &user, const QString &password);
+    bool hasUsableCredentials() const;
+    void runStartupAutoLogin();
     void finishLogin();
     bool responseLooksSuccessful(const QString &response) const;
     void clearReply();
@@ -76,6 +83,7 @@ private:
     QString m_teacherUser;
     QString m_teacherPassword;
     QString m_statusText = QStringLiteral("准备就绪");
+    bool m_autoLoginOnLaunch = false;
     bool m_busy = false;
 };
 
