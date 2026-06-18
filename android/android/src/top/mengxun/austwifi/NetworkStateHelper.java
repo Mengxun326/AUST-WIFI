@@ -79,6 +79,37 @@ public final class NetworkStateHelper {
         return true;
     }
 
+    public static boolean bindProcessToWifi(Context context) {
+        ConnectivityManager connectivityManager =
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) {
+            return false;
+        }
+
+        Network network = wifiNetwork(context);
+        if (network == null) {
+            return false;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return connectivityManager.bindProcessToNetwork(network);
+        }
+        return ConnectivityManager.setProcessDefaultNetwork(network);
+    }
+
+    public static boolean clearProcessNetworkBinding(Context context) {
+        ConnectivityManager connectivityManager =
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) {
+            return false;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return connectivityManager.bindProcessToNetwork(null);
+        }
+        return ConnectivityManager.setProcessDefaultNetwork(null);
+    }
+
     private static Network wifiNetwork(Context context) {
         ConnectivityManager connectivityManager =
                 (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);

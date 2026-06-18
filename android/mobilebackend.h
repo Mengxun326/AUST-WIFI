@@ -129,6 +129,10 @@ private:
     bool installDownloadedUpdate();
     void clearUpdateReplies();
     QString buildNetworkStatusText() const;
+    bool acquireWifiNetworkBinding();
+    void releaseWifiNetworkBinding();
+    void releaseLoginWifiNetworkBinding();
+    void releaseGatewayProbeWifiNetworkBinding();
     void startGatewayProbe();
     void clearGatewayProbe();
     static bool isCampusWifiSsid(const QString &ssid);
@@ -183,7 +187,10 @@ private:
     bool m_wifiConnected = false;
     bool m_campusGatewayReachable = false;
     bool m_campusWifiDetected = false;
+    bool m_loginUsesWifiNetworkBinding = false;
+    bool m_gatewayProbeUsesWifiNetworkBinding = false;
     bool m_busy = false;
+    int m_wifiNetworkBindingUsers = 0;
 };
 
 #endif // MOBILEBACKEND_H

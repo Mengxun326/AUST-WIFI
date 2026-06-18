@@ -72,6 +72,22 @@ bool requestAndroidNetworkPermissions()
     return requested;
 }
 
+bool callAndroidNetworkBoolMethod(const char *methodName)
+{
+    const auto context = QNativeInterface::QAndroidApplication::context();
+    const jboolean ok = QJniObject::callStaticMethod<jboolean>(
+        kAndroidNetworkHelperClass,
+        methodName,
+        "(Landroid/content/Context;)Z",
+        context.object<jobject>());
+
+    QJniEnvironment env;
+    if (env.checkAndClearExceptions(QJniEnvironment::OutputMode::Silent)) {
+        return false;
+    }
+    return ok;
+}
+
 bool callAndroidForegroundServiceMethod(const char *methodName)
 {
     const auto context = QNativeInterface::QAndroidApplication::context();
@@ -764,6 +780,13 @@ void MobileBackend::setBusy(bool value)
 void MobileBackend::startStudentLogin(const QString &user, const QString &password, const QString &server)
 {
     clearReply();
+    m_loginUsesWifiNetworkBinding = acquireWifiNetworkBinding();
+    if (!m_loginUsesWifiNetworkBinding) {
+        setStatusText(QStringLiteral("无法将登录请求切换到 WiFi 网络，请关闭移动数据后重试"));
+        emit loginFailed(m_statusText);
+        return;
+    }
+
     m_loginMode = LoginMode::Student;
     setBusy(true);
     setStatusText(QStringLiteral("正在使用学生账号登录..."));
@@ -781,6 +804,13 @@ void MobileBackend::startStudentLogin(const QString &user, const QString &passwo
 void MobileBackend::startTeacherLogin(const QString &user, const QString &password)
 {
     clearReply();
+    m_loginUsesWifiNetworkBinding = acquireWifiNetworkBinding();
+    if (!m_loginUsesWifiNetworkBinding) {
+        setStatusText(QStringLiteral("无法将登录请求切换到 WiFi 网络，请关闭移动数据后重试"));
+        emit loginFailed(m_statusText);
+        return;
+    }
+
     m_loginMode = LoginMode::Teacher;
     setBusy(true);
     setStatusText(QStringLiteral("正在使用教师账号登录..."));
@@ -1211,9 +1241,63 @@ QString MobileBackend::buildNetworkStatusText() const
     return QStringLiteral("当前 WiFi：%1").arg(m_currentSsid);
 }
 
+bool MobileBackend::acquireWifiNetworkBinding()
+{
+#ifdef Q_OS_ANDROID
+    if (!callAndroidNetworkBoolMethod("bindProcessToWifi")) {
+        return false;
+    }
+    ++m_wifiNetworkBindingUsers;
+    return true;
+#else
+    ++m_wifiNetworkBindingUsers;
+    return true;
+#endif
+}
+
+void MobileBackend::releaseWifiNetworkBinding()
+{
+    if (m_wifiNetworkBindingUsers <= 0) {
+        m_wifiNetworkBindingUsers = 0;
+        return;
+    }
+
+    --m_wifiNetworkBindingUsers;
+    if (m_wifiNetworkBindingUsers > 0) {
+        return;
+    }
+
+#ifdef Q_OS_ANDROID
+    callAndroidNetworkBoolMethod("clearProcessNetworkBinding");
+#endif
+}
+
+void MobileBackend::releaseLoginWifiNetworkBinding()
+{
+    if (!m_loginUsesWifiNetworkBinding) {
+        return;
+    }
+    m_loginUsesWifiNetworkBinding = false;
+    releaseWifiNetworkBinding();
+}
+
+void MobileBackend::releaseGatewayProbeWifiNetworkBinding()
+{
+    if (!m_gatewayProbeUsesWifiNetworkBinding) {
+        return;
+    }
+    m_gatewayProbeUsesWifiNetworkBinding = false;
+    releaseWifiNetworkBinding();
+}
+
 void MobileBackend::startGatewayProbe()
 {
     if (m_gatewayProbeReply || !m_wifiConnected) {
+        return;
+    }
+
+    m_gatewayProbeUsesWifiNetworkBinding = acquireWifiNetworkBinding();
+    if (!m_gatewayProbeUsesWifiNetworkBinding) {
         return;
     }
 
@@ -1238,6 +1322,7 @@ void MobileBackend::finishGatewayProbe()
     const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     const bool reachable = statusCode > 0 || error == QNetworkReply::NoError;
     reply->deleteLater();
+    releaseGatewayProbeWifiNetworkBinding();
 
     const bool oldCampusGatewayReachable = m_campusGatewayReachable;
     const bool oldCampusWifiDetected = m_campusWifiDetected;
@@ -1266,6 +1351,7 @@ void MobileBackend::clearGatewayProbe()
     m_gatewayProbeReply->abort();
     m_gatewayProbeReply->deleteLater();
     m_gatewayProbeReply = nullptr;
+    releaseGatewayProbeWifiNetworkBinding();
 }
 
 bool MobileBackend::isCampusWifiSsid(const QString &ssid)
@@ -1281,6 +1367,7 @@ void MobileBackend::finishLogin()
     QNetworkReply *reply = m_reply;
     m_reply = nullptr;
     setBusy(false);
+    releaseLoginWifiNetworkBinding();
 
     if (!reply) {
         setStatusText(QStringLiteral("登录状态异常"));
@@ -1341,4 +1428,5 @@ void MobileBackend::clearReply()
     disconnect(m_reply, nullptr, this, nullptr);
     m_reply->deleteLater();
     m_reply = nullptr;
+    releaseLoginWifiNetworkBinding();
 }
