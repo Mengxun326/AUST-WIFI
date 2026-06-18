@@ -8,6 +8,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 
 import org.json.JSONObject;
@@ -15,6 +16,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
+@SuppressWarnings("deprecation")
 public final class NetworkStateHelper {
     private static final int WIFI_PERMISSION_REQUEST_CODE = 32602;
     private static final String UNKNOWN_SSID = "<unknown ssid>";
@@ -29,17 +31,17 @@ public final class NetworkStateHelper {
             boolean hasNearbyWifi = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
                     || hasPermission(context, Manifest.permission.NEARBY_WIFI_DEVICES);
 
-            Network activeNetwork = activeNetwork(context);
-            boolean wifiConnected = isWifiConnected(context);
+            Network wifiNetwork = wifiNetwork(context);
+            boolean wifiConnected = wifiNetwork != null;
             String ssid = "";
             if (wifiConnected) {
-                ssid = cleanSsid(readSsid(context));
+                ssid = cleanSsid(readSsid(context, wifiNetwork));
             }
 
             json.put("sdk", Build.VERSION.SDK_INT);
             json.put("wifiConnected", wifiConnected);
             json.put("ssid", ssid);
-            json.put("networkKey", activeNetwork == null ? "" : activeNetwork.toString());
+            json.put("networkKey", wifiNetwork == null ? "" : "wifi:" + wifiNetwork.toString());
             json.put("hasFineLocation", hasFineLocation);
             json.put("hasNearbyWifi", hasNearbyWifi);
             json.put("canReadSsid", !ssid.isEmpty());
@@ -77,28 +79,37 @@ public final class NetworkStateHelper {
         return true;
     }
 
-    private static Network activeNetwork(Context context) {
+    private static Network wifiNetwork(Context context) {
         ConnectivityManager connectivityManager =
                 (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         if (connectivityManager == null) {
             return null;
         }
-        return connectivityManager.getActiveNetwork();
+
+        Network activeNetwork = connectivityManager.getActiveNetwork();
+        if (isWifiNetwork(connectivityManager, activeNetwork)) {
+            return activeNetwork;
+        }
+
+        for (Network network : connectivityManager.getAllNetworks()) {
+            if (isWifiNetwork(connectivityManager, network)) {
+                return network;
+            }
+        }
+
+        return null;
     }
 
-    private static boolean isWifiConnected(Context context) {
-        ConnectivityManager connectivityManager =
-                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (connectivityManager == null) {
+    private static boolean isWifiNetwork(ConnectivityManager connectivityManager, Network network) {
+        if (connectivityManager == null || network == null) {
             return false;
         }
 
-        Network activeNetwork = connectivityManager.getActiveNetwork();
-        NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(activeNetwork);
+        NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
         return capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
     }
 
-    private static String readSsid(Context context) {
+    private static String readSsid(Context context, Network wifiNetwork) {
         try {
             ConnectivityManager connectivityManager =
                     (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -106,16 +117,43 @@ public final class NetworkStateHelper {
                 return "";
             }
 
-            NetworkCapabilities capabilities =
-                    connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
-            if (capabilities != null && capabilities.getTransportInfo() instanceof WifiInfo) {
-                return ((WifiInfo) capabilities.getTransportInfo()).getSSID();
+            String ssid = readSsidFromNetwork(connectivityManager, wifiNetwork);
+            if (!ssid.isEmpty()) {
+                return ssid;
+            }
+
+            for (Network network : connectivityManager.getAllNetworks()) {
+                ssid = readSsidFromNetwork(connectivityManager, network);
+                if (!ssid.isEmpty()) {
+                    return ssid;
+                }
+            }
+
+            WifiManager wifiManager = (WifiManager) context.getApplicationContext()
+                    .getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager != null) {
+                WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+                if (wifiInfo != null) {
+                    return wifiInfo.getSSID();
+                }
             }
 
             return "";
         } catch (SecurityException e) {
             return "";
         }
+    }
+
+    private static String readSsidFromNetwork(ConnectivityManager connectivityManager, Network network) {
+        if (connectivityManager == null || network == null) {
+            return "";
+        }
+
+        NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+        if (capabilities != null && capabilities.getTransportInfo() instanceof WifiInfo) {
+            return ((WifiInfo) capabilities.getTransportInfo()).getSSID();
+        }
+        return "";
     }
 
     private static String cleanSsid(String ssid) {
