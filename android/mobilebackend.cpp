@@ -27,8 +27,10 @@
 namespace {
 constexpr char kStudentLoginUrl[] = "http://10.255.0.19/a79.htm";
 constexpr char kTeacherLoginUrl[] = "http://10.255.0.19/drcom/login";
+constexpr char kCampusGatewayProbeUrl[] = "http://10.255.0.19/";
 constexpr int kNetworkRefreshIntervalMs = 15000;
 constexpr int kAutoLoginCooldownSeconds = 45;
+constexpr int kCampusGatewayProbeTimeoutMs = 2500;
 constexpr char kAndroidUpdateManifestUrl[] = "https://www.meng-xun.top/aust-wifi/android/update.json";
 constexpr char kAndroidPackageName[] = "top.mengxun.austwifi";
 
@@ -192,6 +194,7 @@ MobileBackend::MobileBackend(QObject *parent)
 MobileBackend::~MobileBackend()
 {
     cancelLogin();
+    clearGatewayProbe();
     clearUpdateReplies();
 #ifdef Q_OS_ANDROID
     if (s_mobileBackend.load(std::memory_order_acquire) == this) {
@@ -274,6 +277,11 @@ bool MobileBackend::wifiConnected() const
 bool MobileBackend::campusWifiDetected() const
 {
     return m_campusWifiDetected;
+}
+
+bool MobileBackend::campusGatewayReachable() const
+{
+    return m_campusGatewayReachable;
 }
 
 bool MobileBackend::backgroundServiceEnabled() const
@@ -504,34 +512,44 @@ void MobileBackend::refreshNetworkState()
     const QJsonObject object = document.object();
     const bool wifiConnected = object.value("wifiConnected").toBool(false);
     const QString ssid = object.value("ssid").toString();
+    const QString networkKey = object.value("networkKey").toString();
     const QString missingPermissions = object.value("missingPermissions").toString();
-    const bool canReadSsid = object.value("canReadSsid").toBool(false);
-    const bool campusWifiDetected = isCampusWifiSsid(ssid);
 
-    QString status;
-    if (!missingPermissions.isEmpty()) {
-        status = QStringLiteral("需要授权%1后才能识别当前 WiFi").arg(missingPermissions);
-    } else if (!wifiConnected) {
-        status = QStringLiteral("当前未连接 WiFi");
-    } else if (!canReadSsid) {
-        status = QStringLiteral("已连接 WiFi，但系统未返回 SSID");
-    } else if (campusWifiDetected) {
-        status = QStringLiteral("已连接校园 WiFi：%1").arg(ssid);
-    } else {
-        status = QStringLiteral("当前 WiFi：%1").arg(ssid);
-    }
-
-    const bool changed = m_wifiConnected != wifiConnected
-        || m_currentSsid != ssid
-        || m_missingNetworkPermissions != missingPermissions
-        || m_campusWifiDetected != campusWifiDetected
-        || m_networkStatusText != status;
+    const bool oldWifiConnected = m_wifiConnected;
+    const bool oldCampusGatewayReachable = m_campusGatewayReachable;
+    const bool oldCampusWifiDetected = m_campusWifiDetected;
+    const QString oldSsid = m_currentSsid;
+    const QString oldNetworkKey = m_currentNetworkKey;
+    const QString oldMissingPermissions = m_missingNetworkPermissions;
+    const QString oldStatus = m_networkStatusText;
+    const bool networkChanged = oldNetworkKey != networkKey;
 
     m_wifiConnected = wifiConnected;
     m_currentSsid = ssid;
+    m_currentNetworkKey = networkKey;
     m_missingNetworkPermissions = missingPermissions;
-    m_campusWifiDetected = campusWifiDetected;
-    m_networkStatusText = status;
+    if (!m_wifiConnected || networkChanged) {
+        m_campusGatewayReachable = false;
+    }
+    m_campusWifiDetected = m_wifiConnected && (isCampusWifiSsid(m_currentSsid) || m_campusGatewayReachable);
+    m_networkStatusText = buildNetworkStatusText();
+
+    if (m_wifiConnected) {
+        if (networkChanged) {
+            clearGatewayProbe();
+        }
+        startGatewayProbe();
+    } else {
+        clearGatewayProbe();
+    }
+
+    const bool changed = oldWifiConnected != m_wifiConnected
+        || oldCampusGatewayReachable != m_campusGatewayReachable
+        || oldCampusWifiDetected != m_campusWifiDetected
+        || oldSsid != m_currentSsid
+        || oldNetworkKey != m_currentNetworkKey
+        || oldMissingPermissions != m_missingNetworkPermissions
+        || oldStatus != m_networkStatusText;
 
     if (changed) {
         emit networkStateChanged();
@@ -784,7 +802,7 @@ void MobileBackend::runStartupAutoLogin()
         return;
     }
     if (m_autoLoginOnlyOnCampusWifi && !m_campusWifiDetected) {
-        setStatusText(QStringLiteral("启动自动登录已开启，等待连接校园 WiFi"));
+        setStatusText(QStringLiteral("启动自动登录已开启，等待连接校园网环境"));
         return;
     }
 
@@ -816,7 +834,9 @@ void MobileBackend::evaluateAutoLoginSchedule()
     }
 
     m_lastAutoLoginAttempt = now;
-    setStatusText(QStringLiteral("检测到可用 WiFi，正在自动登录..."));
+    setStatusText(m_campusWifiDetected
+        ? QStringLiteral("检测到校园网环境，正在自动登录...")
+        : QStringLiteral("检测到可用 WiFi，正在自动登录..."));
     login();
 }
 
@@ -1142,6 +1162,92 @@ void MobileBackend::clearUpdateReplies()
         m_updateDownloadReply = nullptr;
     }
     setUpdateBusy(false);
+}
+
+QString MobileBackend::buildNetworkStatusText() const
+{
+    if (!m_wifiConnected) {
+        return QStringLiteral("当前未连接 WiFi");
+    }
+
+    const bool hasSsid = !m_currentSsid.trimmed().isEmpty();
+    const bool campusBySsid = isCampusWifiSsid(m_currentSsid);
+
+    if (!m_missingNetworkPermissions.isEmpty() && !m_campusGatewayReachable) {
+        return QStringLiteral("需要授权%1后才能识别当前 WiFi").arg(m_missingNetworkPermissions);
+    }
+    if (!m_missingNetworkPermissions.isEmpty() && m_campusGatewayReachable) {
+        return QStringLiteral("已连接校园网认证环境（通过认证网关识别）");
+    }
+    if (!hasSsid) {
+        return m_campusGatewayReachable
+            ? QStringLiteral("已连接校园网认证环境（通过认证网关识别）")
+            : QStringLiteral("已连接 WiFi，但系统未返回 SSID");
+    }
+    if (campusBySsid) {
+        return QStringLiteral("已连接校园 WiFi：%1").arg(m_currentSsid);
+    }
+    if (m_campusGatewayReachable) {
+        return QStringLiteral("已连接校园网认证环境：%1（通过认证网关识别）").arg(m_currentSsid);
+    }
+    return QStringLiteral("当前 WiFi：%1").arg(m_currentSsid);
+}
+
+void MobileBackend::startGatewayProbe()
+{
+    if (m_gatewayProbeReply || !m_wifiConnected) {
+        return;
+    }
+
+    QNetworkRequest request(QUrl(QString::fromLatin1(kCampusGatewayProbeUrl)));
+    request.setHeader(QNetworkRequest::UserAgentHeader, "AUST-WiFi-Gateway-Probe");
+    request.setTransferTimeout(kCampusGatewayProbeTimeoutMs);
+
+    m_gatewayProbeReply = m_gatewayProbeManager.get(request);
+    connect(m_gatewayProbeReply, &QNetworkReply::finished, this, &MobileBackend::finishGatewayProbe);
+}
+
+void MobileBackend::finishGatewayProbe()
+{
+    QNetworkReply *reply = m_gatewayProbeReply;
+    m_gatewayProbeReply = nullptr;
+
+    if (!reply) {
+        return;
+    }
+
+    const QNetworkReply::NetworkError error = reply->error();
+    const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const bool reachable = statusCode > 0 || error == QNetworkReply::NoError;
+    reply->deleteLater();
+
+    const bool oldCampusGatewayReachable = m_campusGatewayReachable;
+    const bool oldCampusWifiDetected = m_campusWifiDetected;
+    const QString oldStatus = m_networkStatusText;
+
+    m_campusGatewayReachable = m_wifiConnected && reachable;
+    m_campusWifiDetected = m_wifiConnected && (isCampusWifiSsid(m_currentSsid) || m_campusGatewayReachable);
+    m_networkStatusText = buildNetworkStatusText();
+
+    if (oldCampusGatewayReachable != m_campusGatewayReachable
+        || oldCampusWifiDetected != m_campusWifiDetected
+        || oldStatus != m_networkStatusText) {
+        emit networkStateChanged();
+    }
+
+    evaluateAutoLoginSchedule();
+}
+
+void MobileBackend::clearGatewayProbe()
+{
+    if (!m_gatewayProbeReply) {
+        return;
+    }
+
+    disconnect(m_gatewayProbeReply, nullptr, this, nullptr);
+    m_gatewayProbeReply->abort();
+    m_gatewayProbeReply->deleteLater();
+    m_gatewayProbeReply = nullptr;
 }
 
 bool MobileBackend::isCampusWifiSsid(const QString &ssid)

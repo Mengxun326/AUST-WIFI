@@ -10,6 +10,9 @@ for campus-network login, background guarding, and APK self-update handoff.
 - Supports optional login on app launch.
 - Refreshes WiFi status every 15 seconds in the app foreground, or from the
   foreground guardian service when background guarding is enabled.
+- Recognizes campus-network availability by official AUST SSIDs or by probing
+  the campus authentication gateway, so custom router SSIDs can still trigger
+  auto-login when the gateway is reachable.
 - Requests Android WiFi-identification permissions from the app UI.
 - Uses the shared app logo for Android launcher icons and the mobile header.
 - Provides a foreground guardian service toggle with notification permission

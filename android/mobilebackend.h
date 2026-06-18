@@ -26,6 +26,7 @@ class MobileBackend : public QObject
     Q_PROPERTY(bool autoLoginOnlyOnCampusWifi READ autoLoginOnlyOnCampusWifi WRITE setAutoLoginOnlyOnCampusWifi NOTIFY configChanged)
     Q_PROPERTY(bool wifiConnected READ wifiConnected NOTIFY networkStateChanged)
     Q_PROPERTY(bool campusWifiDetected READ campusWifiDetected NOTIFY networkStateChanged)
+    Q_PROPERTY(bool campusGatewayReachable READ campusGatewayReachable NOTIFY networkStateChanged)
     Q_PROPERTY(bool backgroundServiceEnabled READ backgroundServiceEnabled WRITE setBackgroundServiceEnabled NOTIFY serviceStateChanged)
     Q_PROPERTY(bool notificationPermissionGranted READ notificationPermissionGranted NOTIFY serviceStateChanged)
     Q_PROPERTY(QString backgroundServiceStatusText READ backgroundServiceStatusText NOTIFY serviceStateChanged)
@@ -55,6 +56,7 @@ public:
     bool autoLoginOnlyOnCampusWifi() const;
     bool wifiConnected() const;
     bool campusWifiDetected() const;
+    bool campusGatewayReachable() const;
     bool backgroundServiceEnabled() const;
     bool notificationPermissionGranted() const;
     QString backgroundServiceStatusText() const;
@@ -98,6 +100,7 @@ signals:
 
 private slots:
     void handleBackgroundServiceTick();
+    void finishGatewayProbe();
     void finishUpdateCheck();
     void finishUpdateDownload();
 
@@ -125,6 +128,9 @@ private:
     void setUpdateBusy(bool value);
     bool installDownloadedUpdate();
     void clearUpdateReplies();
+    QString buildNetworkStatusText() const;
+    void startGatewayProbe();
+    void clearGatewayProbe();
     static bool isCampusWifiSsid(const QString &ssid);
     void finishLogin();
     bool responseLooksSuccessful(const QString &response) const;
@@ -133,10 +139,12 @@ private:
     QSettings m_settings;
     QNetworkAccessManager m_networkManager;
     QNetworkAccessManager m_updateNetworkManager;
+    QNetworkAccessManager m_gatewayProbeManager;
     QTimer m_networkRefreshTimer;
     QNetworkReply *m_reply = nullptr;
     QNetworkReply *m_updateManifestReply = nullptr;
     QNetworkReply *m_updateDownloadReply = nullptr;
+    QNetworkReply *m_gatewayProbeReply = nullptr;
     LoginMode m_loginMode = LoginMode::Student;
 
     QString m_studentUser;
@@ -156,6 +164,7 @@ private:
     QString m_updateSha256;
     QString m_pendingApkPath;
     QString m_currentSsid;
+    QString m_currentNetworkKey;
     QString m_missingNetworkPermissions;
     QDateTime m_lastAutoLoginAttempt;
     QDateTime m_lastSuccessfulLogin;
@@ -172,6 +181,7 @@ private:
     bool m_updateAvailable = false;
     bool m_updateBusy = false;
     bool m_wifiConnected = false;
+    bool m_campusGatewayReachable = false;
     bool m_campusWifiDetected = false;
     bool m_busy = false;
 };

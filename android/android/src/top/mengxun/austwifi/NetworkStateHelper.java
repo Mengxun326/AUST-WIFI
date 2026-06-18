@@ -29,6 +29,7 @@ public final class NetworkStateHelper {
             boolean hasNearbyWifi = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
                     || hasPermission(context, Manifest.permission.NEARBY_WIFI_DEVICES);
 
+            Network activeNetwork = activeNetwork(context);
             boolean wifiConnected = isWifiConnected(context);
             String ssid = "";
             if (wifiConnected) {
@@ -38,6 +39,7 @@ public final class NetworkStateHelper {
             json.put("sdk", Build.VERSION.SDK_INT);
             json.put("wifiConnected", wifiConnected);
             json.put("ssid", ssid);
+            json.put("networkKey", activeNetwork == null ? "" : activeNetwork.toString());
             json.put("hasFineLocation", hasFineLocation);
             json.put("hasNearbyWifi", hasNearbyWifi);
             json.put("canReadSsid", !ssid.isEmpty());
@@ -73,6 +75,15 @@ public final class NetworkStateHelper {
                 WIFI_PERMISSION_REQUEST_CODE
         );
         return true;
+    }
+
+    private static Network activeNetwork(Context context) {
+        ConnectivityManager connectivityManager =
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) {
+            return null;
+        }
+        return connectivityManager.getActiveNetwork();
     }
 
     private static boolean isWifiConnected(Context context) {

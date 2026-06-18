@@ -123,7 +123,7 @@ ApplicationWindow {
                             Label {
                                 id: statusChip
                                 anchors.centerIn: parent
-                                text: backend.busy ? "正在登录" : (backend.campusWifiDetected ? "校园 WiFi" : "待连接")
+                                text: backend.busy ? "正在登录" : (backend.campusWifiDetected ? "校园网络" : "待连接")
                                 color: backend.busy ? window.amber : (backend.campusWifiDetected ? window.green : window.blue)
                                 font.pixelSize: 13
                                 font.bold: true
@@ -365,7 +365,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "前台服务会定时检查 WiFi；开启自动登录后，可在后台触发校园网登录。"
+                        text: "前台服务会定时检查网络环境；通过路由器接入校园网时，也会尝试识别认证网关并自动登录。"
                         color: window.muted
                         font.pixelSize: 12
                         wrapMode: Text.WordWrap
@@ -397,7 +397,7 @@ ApplicationWindow {
                             spacing: 3
 
                             Label {
-                                text: "WiFi 识别"
+                                text: "网络识别"
                                 color: window.ink
                                 font.pixelSize: 16
                                 font.bold: true
@@ -414,15 +414,15 @@ ApplicationWindow {
 
                         Rectangle {
                             radius: 999
-                            color: backend.wifiConnected ? "#ECFDF3" : "#F2F4F7"
+                            color: backend.campusWifiDetected ? "#ECFDF3" : (backend.wifiConnected ? "#E8F0FF" : "#F2F4F7")
                             implicitWidth: wifiChip.implicitWidth + 18
                             implicitHeight: 28
 
                             Label {
                                 id: wifiChip
                                 anchors.centerIn: parent
-                                text: backend.wifiConnected ? "WiFi 已连接" : "无 WiFi"
-                                color: backend.wifiConnected ? window.green : window.muted
+                                text: backend.campusWifiDetected ? "校园网可用" : (backend.wifiConnected ? "WiFi 已连接" : "无 WiFi")
+                                color: backend.campusWifiDetected ? window.green : (backend.wifiConnected ? window.blue : window.muted)
                                 font.pixelSize: 12
                                 font.bold: true
                             }
@@ -569,7 +569,7 @@ ApplicationWindow {
                     }
 
                     Switch {
-                        text: "仅校园 WiFi 自动登录"
+                        text: "仅校园网环境自动登录"
                         checked: backend.autoLoginOnlyOnCampusWifi
                         enabled: !backend.busy && backend.autoLoginOnLaunch
                         onToggled: backend.autoLoginOnlyOnCampusWifi = checked
@@ -600,7 +600,7 @@ ApplicationWindow {
             }
 
             Label {
-                text: "当前版本可通过前台服务定时识别 WiFi 并自动登录，也可检查服务器上的新版 APK。"
+                text: "当前版本可通过前台服务定时识别校园网环境并自动登录，也可检查服务器上的新版 APK。"
                 color: window.muted
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
