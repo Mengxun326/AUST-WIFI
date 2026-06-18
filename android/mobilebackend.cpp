@@ -30,6 +30,9 @@ constexpr char kTeacherLoginUrl[] = "http://10.255.0.19/drcom/login";
 constexpr char kCampusGatewayProbeUrl[] = "http://10.255.0.19/";
 constexpr int kNetworkRefreshIntervalMs = 15000;
 constexpr int kAutoLoginCooldownSeconds = 45;
+constexpr int kAutoLoginStabilizeDelayMs = 2500;
+constexpr int kAutoLoginRetryDelayMs = 3500;
+constexpr int kAutoLoginTransientMaxRetries = 2;
 constexpr int kCampusGatewayProbeTimeoutMs = 2500;
 constexpr char kAndroidUpdateManifestUrl[] = "https://www.meng-xun.top/aust-wifi/android/update.json";
 constexpr char kAndroidPackageName[] = "top.mengxun.austwifi";
@@ -197,6 +200,8 @@ MobileBackend::MobileBackend(QObject *parent)
 
     loadConfig();
     refreshCurrentAppVersion();
+    m_autoLoginTimer.setSingleShot(true);
+    connect(&m_autoLoginTimer, &QTimer::timeout, this, &MobileBackend::performScheduledAutoLogin);
     connect(&m_networkRefreshTimer, &QTimer::timeout, this, &MobileBackend::refreshNetworkState);
     updateNetworkRefreshTimer();
     QTimer::singleShot(400, this, &MobileBackend::refreshNetworkState);
@@ -479,17 +484,30 @@ bool MobileBackend::saveConfig()
 
 void MobileBackend::login()
 {
+    startLogin(false);
+}
+
+void MobileBackend::startLogin(bool automatic)
+{
     if (m_busy) {
         setStatusText(QStringLiteral("登录请求正在进行，请稍后"));
         return;
     }
 
+    m_currentLoginAutomatic = automatic;
+    if (!automatic) {
+        m_autoLoginTimer.stop();
+        m_autoLoginTransientRetryCount = 0;
+    }
+
     if (!saveConfig()) {
+        m_currentLoginAutomatic = false;
         emit loginFailed(m_statusText);
         return;
     }
 
     if (!m_wifiConnected) {
+        m_currentLoginAutomatic = false;
         setStatusText(QStringLiteral("请先连接 WiFi 后再登录校园网"));
         emit loginFailed(m_statusText);
         return;
@@ -508,11 +526,15 @@ void MobileBackend::login()
     }
 
     setStatusText(QStringLiteral("请先填写学生或教师账号密码"));
+    m_currentLoginAutomatic = false;
     emit loginFailed(m_statusText);
 }
 
 void MobileBackend::cancelLogin()
 {
+    m_autoLoginTimer.stop();
+    m_currentLoginAutomatic = false;
+    m_autoLoginTransientRetryCount = 0;
     if (m_reply) {
         m_reply->abort();
     }
@@ -546,6 +568,11 @@ void MobileBackend::refreshNetworkState()
     const QString oldStatus = m_networkStatusText;
     const bool networkChanged = oldNetworkKey != networkKey;
     const bool shouldCancelLogin = m_reply && (oldWifiConnected != wifiConnected || networkChanged);
+
+    if (!wifiConnected || networkChanged) {
+        m_autoLoginTimer.stop();
+        m_autoLoginTransientRetryCount = 0;
+    }
 
     m_wifiConnected = wifiConnected;
     m_currentSsid = ssid;
@@ -631,6 +658,15 @@ void MobileBackend::checkForUpdates()
     if (m_updateBusy) {
         return;
     }
+    if (m_busy || m_wifiNetworkBindingUsers > 0 || m_autoLoginTimer.isActive()) {
+        if (!m_updateCheckDeferred) {
+            m_updateCheckDeferred = true;
+            setUpdateStatusText(QStringLiteral("登录完成后自动检查更新"));
+        }
+        QTimer::singleShot(5000, this, &MobileBackend::checkForUpdates);
+        return;
+    }
+    m_updateCheckDeferred = false;
 
     if (m_updateManifestReply) {
         disconnect(m_updateManifestReply, nullptr, this, nullptr);
@@ -782,6 +818,7 @@ void MobileBackend::startStudentLogin(const QString &user, const QString &passwo
     clearReply();
     m_loginUsesWifiNetworkBinding = acquireWifiNetworkBinding();
     if (!m_loginUsesWifiNetworkBinding) {
+        m_currentLoginAutomatic = false;
         setStatusText(QStringLiteral("无法将登录请求切换到 WiFi 网络，请关闭移动数据后重试"));
         emit loginFailed(m_statusText);
         return;
@@ -806,6 +843,7 @@ void MobileBackend::startTeacherLogin(const QString &user, const QString &passwo
     clearReply();
     m_loginUsesWifiNetworkBinding = acquireWifiNetworkBinding();
     if (!m_loginUsesWifiNetworkBinding) {
+        m_currentLoginAutomatic = false;
         setStatusText(QStringLiteral("无法将登录请求切换到 WiFi 网络，请关闭移动数据后重试"));
         emit loginFailed(m_statusText);
         return;
@@ -854,9 +892,9 @@ void MobileBackend::runStartupAutoLogin()
         return;
     }
 
-    setStatusText(QStringLiteral("启动自动登录中..."));
+    m_autoLoginTransientRetryCount = 0;
     m_lastAutoLoginAttempt = QDateTime::currentDateTime();
-    login();
+    scheduleAutoLoginAttempt(QStringLiteral("启动自动登录准备中，等待网络稳定..."));
 }
 
 void MobileBackend::evaluateAutoLoginSchedule()
@@ -868,6 +906,9 @@ void MobileBackend::evaluateAutoLoginSchedule()
         return;
     }
     if (m_autoLoginOnlyOnCampusWifi && !m_campusWifiDetected) {
+        return;
+    }
+    if (m_autoLoginTimer.isActive()) {
         return;
     }
 
@@ -882,10 +923,57 @@ void MobileBackend::evaluateAutoLoginSchedule()
     }
 
     m_lastAutoLoginAttempt = now;
+    m_autoLoginTransientRetryCount = 0;
+    scheduleAutoLoginAttempt(m_campusWifiDetected
+        ? QStringLiteral("检测到校园网环境，等待网络稳定后自动登录...")
+        : QStringLiteral("检测到可用 WiFi，等待网络稳定后自动登录..."));
+}
+
+void MobileBackend::scheduleAutoLoginAttempt(const QString &statusText)
+{
+    if (m_autoLoginTimer.isActive()) {
+        return;
+    }
+    setStatusText(statusText);
+    m_autoLoginTimer.start(kAutoLoginStabilizeDelayMs);
+}
+
+void MobileBackend::performScheduledAutoLogin()
+{
+    if (!m_autoLoginOnLaunch || m_busy || !hasUsableCredentials()) {
+        return;
+    }
+    if (!m_wifiConnected) {
+        setStatusText(QStringLiteral("自动登录已等待，当前未连接 WiFi"));
+        return;
+    }
+    if (m_autoLoginOnlyOnCampusWifi && !m_campusWifiDetected) {
+        setStatusText(QStringLiteral("自动登录已等待，当前不是校园网环境"));
+        return;
+    }
+
     setStatusText(m_campusWifiDetected
         ? QStringLiteral("检测到校园网环境，正在自动登录...")
         : QStringLiteral("检测到可用 WiFi，正在自动登录..."));
-    login();
+    startLogin(true);
+}
+
+bool MobileBackend::scheduleAutoLoginRetry(int statusCode)
+{
+    if (!m_currentLoginAutomatic || m_autoLoginTransientRetryCount >= kAutoLoginTransientMaxRetries) {
+        return false;
+    }
+    if (!m_autoLoginOnLaunch || !m_wifiConnected || (m_autoLoginOnlyOnCampusWifi && !m_campusWifiDetected)) {
+        return false;
+    }
+
+    ++m_autoLoginTransientRetryCount;
+    setStatusText(QStringLiteral("自动登录响应未确认成功（HTTP %1），稍后重试 %2/%3")
+        .arg(statusCode)
+        .arg(m_autoLoginTransientRetryCount)
+        .arg(kAutoLoginTransientMaxRetries));
+    m_autoLoginTimer.start(kAutoLoginRetryDelayMs);
+    return true;
 }
 
 void MobileBackend::finishUpdateCheck()
@@ -1370,6 +1458,7 @@ void MobileBackend::finishLogin()
     releaseLoginWifiNetworkBinding();
 
     if (!reply) {
+        m_currentLoginAutomatic = false;
         setStatusText(QStringLiteral("登录状态异常"));
         emit loginFailed(m_statusText);
         return;
@@ -1382,12 +1471,17 @@ void MobileBackend::finishLogin()
     reply->deleteLater();
 
     if (error != QNetworkReply::NoError) {
+        m_currentLoginAutomatic = false;
         setStatusText(QStringLiteral("登录请求失败：%1").arg(errorText));
         emit loginFailed(m_statusText);
         return;
     }
 
     if (!responseLooksSuccessful(response)) {
+        if (scheduleAutoLoginRetry(statusCode)) {
+            return;
+        }
+        m_currentLoginAutomatic = false;
         setStatusText(QStringLiteral("服务器响应异常，可能登录失败（HTTP %1）").arg(statusCode));
         emit loginFailed(m_statusText);
         return;
@@ -1396,6 +1490,8 @@ void MobileBackend::finishLogin()
     m_settings.setValue("lastLoginTime", QDateTime::currentDateTime());
     m_settings.sync();
     m_lastSuccessfulLogin = QDateTime::currentDateTime();
+    m_autoLoginTransientRetryCount = 0;
+    m_currentLoginAutomatic = false;
 
     const QString accountType = m_loginMode == LoginMode::Teacher ? QStringLiteral("教师") : QStringLiteral("学生");
     setStatusText(QStringLiteral("%1账号登录成功").arg(accountType));
@@ -1404,7 +1500,11 @@ void MobileBackend::finishLogin()
 
 bool MobileBackend::responseLooksSuccessful(const QString &response) const
 {
-    if (response.contains("\"result\":1") || response.contains("login_ok", Qt::CaseInsensitive)) {
+    if (response.contains("\"result\":1")
+        || response.contains("\"result\":\"1\"")
+        || response.contains("login_ok", Qt::CaseInsensitive)
+        || response.contains(QStringLiteral("登录成功"))
+        || response.contains(QStringLiteral("认证成功"))) {
         return true;
     }
     if (response.contains("UID=") && response.contains("@jzg") && response.contains("ac0=")) {

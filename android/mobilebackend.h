@@ -113,11 +113,15 @@ private:
     static QUrlQuery buildLoginQuery(const QString &user, const QString &server, const QString &password);
     void setStatusText(const QString &value);
     void setBusy(bool value);
+    void startLogin(bool automatic);
     void startStudentLogin(const QString &user, const QString &password, const QString &server);
     void startTeacherLogin(const QString &user, const QString &password);
     bool hasUsableCredentials() const;
     void runStartupAutoLogin();
     void evaluateAutoLoginSchedule();
+    void scheduleAutoLoginAttempt(const QString &statusText);
+    void performScheduledAutoLogin();
+    bool scheduleAutoLoginRetry(int statusCode);
     void syncBackgroundServiceState();
     void updateNetworkRefreshTimer();
     void refreshNotificationPermission();
@@ -149,6 +153,7 @@ private:
     QNetworkReply *m_updateManifestReply = nullptr;
     QNetworkReply *m_updateDownloadReply = nullptr;
     QNetworkReply *m_gatewayProbeReply = nullptr;
+    QTimer m_autoLoginTimer;
     LoginMode m_loginMode = LoginMode::Student;
 
     QString m_studentUser;
@@ -187,9 +192,12 @@ private:
     bool m_wifiConnected = false;
     bool m_campusGatewayReachable = false;
     bool m_campusWifiDetected = false;
+    bool m_currentLoginAutomatic = false;
+    bool m_updateCheckDeferred = false;
     bool m_loginUsesWifiNetworkBinding = false;
     bool m_gatewayProbeUsesWifiNetworkBinding = false;
     bool m_busy = false;
+    int m_autoLoginTransientRetryCount = 0;
     int m_wifiNetworkBindingUsers = 0;
 };
 
