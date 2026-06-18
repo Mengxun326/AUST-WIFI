@@ -65,8 +65,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\release-android.ps1 `
 Android 版本号在 `android\AUST_WIFI_ANDROID.pro` 中：
 
 ```text
-ANDROID_VERSION_CODE = 12
-ANDROID_VERSION_NAME = 1.0.2
+ANDROID_VERSION_CODE = 13
+ANDROID_VERSION_NAME = 1.0.3
 ```
 
 如果通过发布脚本改版本，必须同时提高 `VersionCode`：

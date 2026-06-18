@@ -473,6 +473,12 @@ void MobileBackend::login()
         return;
     }
 
+    if (!m_wifiConnected) {
+        setStatusText(QStringLiteral("请先连接 WiFi 后再登录校园网"));
+        emit loginFailed(m_statusText);
+        return;
+    }
+
     const QString teacherUser = m_teacherUser.trimmed();
     if (!teacherUser.isEmpty() && !m_teacherPassword.isEmpty()) {
         startTeacherLogin(teacherUser, m_teacherPassword);
@@ -523,6 +529,7 @@ void MobileBackend::refreshNetworkState()
     const QString oldMissingPermissions = m_missingNetworkPermissions;
     const QString oldStatus = m_networkStatusText;
     const bool networkChanged = oldNetworkKey != networkKey;
+    const bool shouldCancelLogin = m_reply && (oldWifiConnected != wifiConnected || networkChanged);
 
     m_wifiConnected = wifiConnected;
     m_currentSsid = ssid;
@@ -553,6 +560,13 @@ void MobileBackend::refreshNetworkState()
 
     if (changed) {
         emit networkStateChanged();
+    }
+
+    if (shouldCancelLogin) {
+        cancelLogin();
+        setStatusText(m_wifiConnected
+            ? QStringLiteral("网络环境已变化，已取消本次登录")
+            : QStringLiteral("WiFi 已断开，已取消本次登录"));
     }
     evaluateAutoLoginSchedule();
 #else
@@ -803,6 +817,10 @@ void MobileBackend::runStartupAutoLogin()
     }
     if (m_autoLoginOnlyOnCampusWifi && !m_campusWifiDetected) {
         setStatusText(QStringLiteral("启动自动登录已开启，等待连接校园网环境"));
+        return;
+    }
+    if (!m_wifiConnected) {
+        setStatusText(QStringLiteral("启动自动登录已开启，等待连接 WiFi"));
         return;
     }
 

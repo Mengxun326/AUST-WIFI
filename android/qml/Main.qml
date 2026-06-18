@@ -591,8 +591,8 @@ ApplicationWindow {
                 }
 
                 Button {
-                    text: backend.busy ? "登录中..." : "立即登录"
-                    enabled: !backend.busy
+                    text: backend.busy ? "登录中..." : (backend.wifiConnected ? "立即登录" : "请先连接 WiFi")
+                    enabled: !backend.busy && backend.wifiConnected
                     highlighted: true
                     Layout.fillWidth: true
                     onClicked: backend.login()
