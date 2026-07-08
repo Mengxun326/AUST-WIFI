@@ -41,7 +41,7 @@ public final class NetworkStateHelper {
             json.put("sdk", Build.VERSION.SDK_INT);
             json.put("wifiConnected", wifiConnected);
             json.put("ssid", ssid);
-            json.put("networkKey", wifiNetwork == null ? "" : "wifi:" + wifiNetwork.toString());
+            json.put("networkKey", wifiNetwork == null ? "" : "wifi:" + wifiNetwork.getNetworkHandle());
             json.put("hasFineLocation", hasFineLocation);
             json.put("hasNearbyWifi", hasNearbyWifi);
             json.put("canReadSsid", !ssid.isEmpty());

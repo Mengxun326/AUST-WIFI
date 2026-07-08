@@ -10,6 +10,7 @@
 #include <QJsonObject>
 #include <QMetaObject>
 #include <QNetworkRequest>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTime>
 #include <QTimer>
@@ -194,12 +195,13 @@ MobileBackend::MobileBackend(QObject *parent)
     : QObject(parent)
     , m_settings("AUST_WIFI", "Android")
 {
+    loadConfig();
+    refreshCurrentAppVersion();
+
 #ifdef Q_OS_ANDROID
     s_mobileBackend.store(this, std::memory_order_release);
 #endif
 
-    loadConfig();
-    refreshCurrentAppVersion();
     m_autoLoginTimer.setSingleShot(true);
     connect(&m_autoLoginTimer, &QTimer::timeout, this, &MobileBackend::performScheduledAutoLogin);
     connect(&m_networkRefreshTimer, &QTimer::timeout, this, &MobileBackend::refreshNetworkState);
@@ -532,6 +534,7 @@ void MobileBackend::startLogin(bool automatic)
 
 void MobileBackend::cancelLogin()
 {
+    clearGatewayProbe();
     m_autoLoginTimer.stop();
     m_currentLoginAutomatic = false;
     m_autoLoginTransientRetryCount = 0;
@@ -661,7 +664,7 @@ void MobileBackend::checkForUpdates()
     if (m_busy || m_wifiNetworkBindingUsers > 0 || m_autoLoginTimer.isActive()) {
         if (!m_updateCheckDeferred) {
             m_updateCheckDeferred = true;
-            setUpdateStatusText(QStringLiteral("登录完成后自动检查更新"));
+            setUpdateStatusText(QStringLiteral("网络操作进行中，稍后自动检查更新"));
         }
         QTimer::singleShot(5000, this, &MobileBackend::checkForUpdates);
         return;
@@ -700,6 +703,10 @@ void MobileBackend::checkForUpdates()
 void MobileBackend::downloadAndInstallUpdate()
 {
     if (m_updateBusy) {
+        return;
+    }
+    if (m_wifiNetworkBindingUsers > 0) {
+        setUpdateStatusText(QStringLiteral("请等待网络操作完成后再下载更新"));
         return;
     }
 
@@ -980,9 +987,9 @@ void MobileBackend::finishUpdateCheck()
 {
     QNetworkReply *reply = m_updateManifestReply;
     m_updateManifestReply = nullptr;
-    setUpdateBusy(false);
 
     if (!reply) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("更新检查状态异常"));
         return;
     }
@@ -993,6 +1000,7 @@ void MobileBackend::finishUpdateCheck()
     reply->deleteLater();
 
     if (error != QNetworkReply::NoError) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("更新检查失败：%1").arg(errorText));
         return;
     }
@@ -1000,6 +1008,7 @@ void MobileBackend::finishUpdateCheck()
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(payload, &parseError);
     if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("更新清单格式无效"));
         return;
     }
@@ -1007,7 +1016,7 @@ void MobileBackend::finishUpdateCheck()
     const QJsonObject object = document.object();
     const QString platform = object.value(QStringLiteral("platform")).toString();
     const QString packageName = object.value(QStringLiteral("package")).toString();
-    const int versionCode = object.value(QStringLiteral("version_code")).toInt();
+    const qint64 versionCode = object.value(QStringLiteral("version_code")).toInteger();
     const QString latest = object.value(QStringLiteral("latest")).toString();
     const QString url = object.value(QStringLiteral("url")).toString();
     const QString sha256 = object.value(QStringLiteral("sha256")).toString().trimmed().toLower();
@@ -1016,14 +1025,17 @@ void MobileBackend::finishUpdateCheck()
     const bool signedApk = object.value(QStringLiteral("signed")).toBool(false);
 
     if (platform != QStringLiteral("android") || packageName != QString::fromLatin1(kAndroidPackageName)) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("更新清单不属于当前 Android 应用"));
         return;
     }
     if (versionCode <= 0 || latest.isEmpty()) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("更新清单缺少版本信息"));
         return;
     }
     if (!signedApk) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("更新清单未标记为正式签名 APK，已拒绝"));
         return;
     }
@@ -1039,12 +1051,14 @@ void MobileBackend::finishUpdateCheck()
     if (versionCode <= m_currentVersionCode) {
         m_updateAvailable = false;
         setUpdateStatusText(QStringLiteral("当前已是最新 Android 版本"));
+        setUpdateBusy(false);
         emit updateStateChanged();
         return;
     }
 
     m_updateAvailable = true;
     setUpdateStatusText(QStringLiteral("发现新版本 %1（%2），可下载更新").arg(latest).arg(versionCode));
+    setUpdateBusy(false);
     emit updateStateChanged();
 }
 
@@ -1052,9 +1066,9 @@ void MobileBackend::finishUpdateDownload()
 {
     QNetworkReply *reply = m_updateDownloadReply;
     m_updateDownloadReply = nullptr;
-    setUpdateBusy(false);
 
     if (!reply) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("更新下载状态异常"));
         return;
     }
@@ -1065,6 +1079,7 @@ void MobileBackend::finishUpdateDownload()
     reply->deleteLater();
 
     if (error != QNetworkReply::NoError) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("更新下载失败：%1").arg(errorText));
         QFile::remove(m_pendingApkPath);
         return;
@@ -1072,12 +1087,14 @@ void MobileBackend::finishUpdateDownload()
 
     const QString actualHash = QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex());
     if (!m_updateSha256.isEmpty() && actualHash.compare(m_updateSha256, Qt::CaseInsensitive) != 0) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("APK 校验失败，已取消安装"));
         QFile::remove(m_pendingApkPath);
         m_pendingApkPath.clear();
         return;
     }
     if (m_updateSize > 0 && data.size() != m_updateSize) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("APK 大小不一致，已取消安装"));
         QFile::remove(m_pendingApkPath);
         m_pendingApkPath.clear();
@@ -1086,6 +1103,7 @@ void MobileBackend::finishUpdateDownload()
 
     QFile file(m_pendingApkPath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("无法保存下载的 APK"));
         m_pendingApkPath.clear();
         return;
@@ -1094,6 +1112,7 @@ void MobileBackend::finishUpdateDownload()
         file.close();
         QFile::remove(m_pendingApkPath);
         m_pendingApkPath.clear();
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("APK 写入不完整，已取消安装"));
         return;
     }
@@ -1103,17 +1122,27 @@ void MobileBackend::finishUpdateDownload()
     const QString apkInfoJson = callAndroidApkUpdateStringPathMethod("apkInfo", m_pendingApkPath);
     const QJsonDocument apkInfoDocument = QJsonDocument::fromJson(apkInfoJson.toUtf8());
     const QJsonObject apkInfo = apkInfoDocument.object();
+    if (apkInfo.contains(QStringLiteral("error"))) {
+        const QString errorMsg = apkInfo.value(QStringLiteral("error")).toString();
+        QFile::remove(m_pendingApkPath);
+        m_pendingApkPath.clear();
+        setUpdateBusy(false);
+        setUpdateStatusText(QStringLiteral("APK 信息读取失败：%1").arg(errorMsg.isEmpty() ? QStringLiteral("未知错误") : errorMsg));
+        return;
+    }
     const QString apkPackageName = apkInfo.value(QStringLiteral("packageName")).toString();
-    const int apkVersionCode = apkInfo.value(QStringLiteral("versionCode")).toInt();
+    const qint64 apkVersionCode = apkInfo.value(QStringLiteral("versionCode")).toInteger();
     if (apkPackageName != QString::fromLatin1(kAndroidPackageName) || apkVersionCode != m_updateVersionCode) {
         QFile::remove(m_pendingApkPath);
         m_pendingApkPath.clear();
+        setUpdateBusy(false);
         setUpdateStatusText(QStringLiteral("APK 包名或版本号不匹配，已取消安装"));
         return;
     }
 #endif
 
     m_updateDownloadProgress = 1.0;
+    setUpdateBusy(false);
     emit updateStateChanged();
     installDownloadedUpdate();
 }
@@ -1220,7 +1249,7 @@ void MobileBackend::refreshCurrentAppVersion()
     const QJsonDocument document = QJsonDocument::fromJson(versionJson.toUtf8());
     const QJsonObject object = document.object();
     const QString versionName = object.value(QStringLiteral("versionName")).toString();
-    const int versionCode = object.value(QStringLiteral("versionCode")).toInt();
+    const qint64 versionCode = object.value(QStringLiteral("versionCode")).toInteger();
     if (!versionName.isEmpty()) {
         m_currentVersionName = versionName;
     }
@@ -1332,10 +1361,13 @@ QString MobileBackend::buildNetworkStatusText() const
 bool MobileBackend::acquireWifiNetworkBinding()
 {
 #ifdef Q_OS_ANDROID
-    if (!callAndroidNetworkBoolMethod("bindProcessToWifi")) {
-        return false;
+    const int prev = m_wifiNetworkBindingUsers++;
+    if (prev == 0) {
+        if (!callAndroidNetworkBoolMethod("bindProcessToWifi")) {
+            --m_wifiNetworkBindingUsers;
+            return false;
+        }
     }
-    ++m_wifiNetworkBindingUsers;
     return true;
 #else
     ++m_wifiNetworkBindingUsers;
@@ -1358,6 +1390,11 @@ void MobileBackend::releaseWifiNetworkBinding()
 #ifdef Q_OS_ANDROID
     callAndroidNetworkBoolMethod("clearProcessNetworkBinding");
 #endif
+
+    if (m_updateCheckDeferred) {
+        m_updateCheckDeferred = false;
+        QTimer::singleShot(0, this, &MobileBackend::checkForUpdates);
+    }
 }
 
 void MobileBackend::releaseLoginWifiNetworkBinding()
@@ -1408,7 +1445,11 @@ void MobileBackend::finishGatewayProbe()
 
     const QNetworkReply::NetworkError error = reply->error();
     const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    const bool reachable = statusCode > 0 || error == QNetworkReply::NoError;
+    const QByteArray body = reply->readAll();
+    const bool bodyMatch = (statusCode >= 200 && statusCode < 400)
+        && (body.contains("Dr.COM") || body.contains("a79.htm")
+            || body.contains("上网认证") || body.contains("校园网"));
+    const bool reachable = bodyMatch || (statusCode > 0);
     reply->deleteLater();
     releaseGatewayProbeWifiNetworkBinding();
 
@@ -1500,7 +1541,7 @@ void MobileBackend::finishLogin()
 
 bool MobileBackend::responseLooksSuccessful(const QString &response) const
 {
-    if (response.contains("\"result\":1")
+    if (response.contains(QRegularExpression("\"result\"\\s*:\\s*1(?!\\d)"))
         || response.contains("\"result\":\"1\"")
         || response.contains("login_ok", Qt::CaseInsensitive)
         || response.contains(QStringLiteral("登录成功"))

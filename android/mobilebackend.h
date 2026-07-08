@@ -179,14 +179,14 @@ private:
     QDateTime m_lastSuccessfulLogin;
     QDateTime m_lastServiceTick;
     qint64 m_updateSize = 0;
-    int m_currentVersionCode = 0;
-    int m_updateVersionCode = 0;
+    qint64 m_currentVersionCode = 0;
+    qint64 m_updateVersionCode = 0;
     qreal m_updateDownloadProgress = 0.0;
     bool m_autoLoginOnLaunch = false;
     bool m_autoLoginOnlyOnCampusWifi = true;
     bool m_backgroundServiceEnabled = false;
-    bool m_notificationPermissionGranted = true;
-    bool m_installPermissionGranted = true;
+    bool m_notificationPermissionGranted = false;
+    bool m_installPermissionGranted = false;
     bool m_updateAvailable = false;
     bool m_updateBusy = false;
     bool m_wifiConnected = false;

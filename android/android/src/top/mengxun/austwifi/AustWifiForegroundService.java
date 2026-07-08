@@ -30,11 +30,26 @@ public final class AustWifiForegroundService extends Service {
             if (!guardLoopRunning) {
                 return;
             }
-            dispatchGuardTick();
+            try {
+                nativeGuardTick();
+                consecutiveFailures = 0;
+            } catch (UnsatisfiedLinkError | RuntimeException e) {
+                android.util.Log.e("AustWifiGuard", "Guard tick failed", e);
+                consecutiveFailures++;
+                if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                    android.util.Log.w("AustWifiGuard",
+                        "Stopping guard loop after " + consecutiveFailures + " consecutive failures");
+                    stopGuardLoop();
+                    updateFailureNotification();
+                    return;
+                }
+            }
             guardHandler.postDelayed(this, GUARD_TICK_INTERVAL_MS);
         }
     };
     private boolean guardLoopRunning = false;
+    private int consecutiveFailures = 0;
+    private static final int MAX_CONSECUTIVE_FAILURES = 5;
 
     public static boolean start(Context context) {
         if (context == null) {
@@ -185,12 +200,20 @@ public final class AustWifiForegroundService extends Service {
         guardHandler.removeCallbacks(guardTickRunnable);
     }
 
-    private static void dispatchGuardTick() {
-        try {
-            nativeGuardTick();
-        } catch (UnsatisfiedLinkError | RuntimeException e) {
-            // The service may be restarted by Android before Qt registers the native side.
+    private void updateFailureNotification() {
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager == null) {
+            return;
         }
+        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("AUST WiFi 后台守护已停止")
+                .setContentText("连续多次守护检查失败，请打开应用重新启用")
+                .setOngoing(false)
+                .setShowWhen(true)
+                .build();
+        manager.notify(NOTIFICATION_ID, notification);
+        stopForeground(STOP_FOREGROUND_REMOVE);
     }
 
     private static native void nativeGuardTick();

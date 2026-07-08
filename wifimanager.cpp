@@ -754,7 +754,7 @@ void WiFiManager::onLoginFinished()
             
             // 检查响应内容判断登录是否成功
             bool loginSuccess = false;
-            if (response.contains("\"result\":1")) {
+            if (response.contains(QRegularExpression("\"result\"\\s*:\\s*1(?!\\d)"))) {
                 // 教师登录成功标志（JSONP响应）
                 loginSuccess = true;
                 qDebug() << "检测到教师登录成功标志: result:1";
@@ -909,7 +909,7 @@ void WiFiManager::sendTeacherLoginRequest(const QString &user, const QString &pa
             qDebug() << "教师登录响应内容:" << response.left(200);
             
             // 检查教师登录成功标志 - 根据实际响应内容调整
-            if (response.contains("\"result\":1") || response.contains("login_ok") || 
+            if (response.contains(QRegularExpression("\"result\"\\s*:\\s*1(?!\\d)")) || response.contains("login_ok") ||
                 (http_code == 200 && !response.contains("login") && !response.contains("error"))) {
                 emit loginResult(true, "教师登录成功");
             } else {
