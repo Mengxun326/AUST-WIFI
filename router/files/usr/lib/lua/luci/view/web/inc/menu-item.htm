@@ -1,0 +1,6 @@
+<li <%if string.find(REQUEST_URI, "/austnet", 1, true) then%>class="active"<%end%>>
+    <a href="<%=luci.dispatcher.build_url("web", "prosetting", "austnet")%>">
+        <i class="ico ico-7"></i>
+        <span>AUST校园网自动认证</span>
+    </a>
+</li>

@@ -1,0 +1,14 @@
+#!/bin/sh /etc/rc.common
+START=95
+USE_PROCD=1
+
+start_service() {
+    umask 077
+    mkdir -p /tmp/austnet /var/lock || return 1
+    chmod 700 /tmp/austnet || return 1
+    /usr/bin/lua /austnet/austnet.lua --enabled || return 0
+    procd_open_instance
+    procd_set_param command /usr/bin/lua /austnet/austnet.lua
+    procd_set_param respawn 3600 10 5
+    procd_close_instance
+}
