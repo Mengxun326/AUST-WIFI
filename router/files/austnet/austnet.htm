@@ -1,0 +1,190 @@
+<%local ver = require("xiaoqiang.XQVersion").webVersion%>
+<%include("web/inc/head")%>
+<title>AUST校园网自动认证</title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/layout.css?v=<%=ver%>" rel="stylesheet">
+<style>
+.mod-austnet .aust-panel {max-width:none;margin:0;padding:0;color:inherit;font:inherit}
+.mod-austnet .aust-panel h1 {display:none}
+.mod-austnet .aust-panel section {border:0;border-bottom:1px solid #d7d7d7;border-radius:0;margin:0 0 24px;padding:0 0 24px}
+.mod-austnet .aust-panel > section:last-child {border-bottom:0;margin:0;padding-bottom:0}
+.mod-austnet .aust-panel .grid {max-width:720px}
+.mod-austnet .aust-panel .state {color:#2673bf}
+.mod-austnet .aust-panel button {color:#2673bf;border-color:#b8c9da}
+.mod-austnet .aust-panel button[type=submit],
+.mod-austnet .aust-panel input[type=checkbox]:checked {background:#2673bf;color:#fff;border-color:#2673bf}
+</style>
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <div class="mod-set mod-austnet">
+            <div class="hd"><h3>AUST校园网自动认证</h3></div>
+            <div class="bd">
+                <!-- AUSTNET_PREVIEW_START -->
+<style>
+.aust-panel {max-width:760px;margin:28px auto;padding:0 18px;color:#24363b;font:15px/1.5 system-ui,sans-serif}
+.aust-panel * {box-sizing:border-box}
+.aust-panel h1 {font-size:24px;margin:0 0 18px}
+.aust-panel h2 {font-size:16px;margin:0 0 14px}
+.aust-panel section {border:1px solid #dbe4e4;border-radius:10px;background:white;margin:0 0 14px;padding:20px}
+.aust-panel [hidden] {display:none !important}
+.aust-panel[data-collapsed] #aust-summary {border-bottom:0;margin-bottom:0}
+.mod-austnet .aust-panel[data-collapsed] #aust-summary {padding-bottom:0}
+.aust-panel .row {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.aust-panel .grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.aust-panel label span {display:block;margin-bottom:5px}
+.aust-panel input:not([type=checkbox]),.aust-panel select {background:white;color:inherit;width:100%;height:38px;border:1px solid #aebdbe;border-radius:5px;padding:0 9px;font:inherit}
+.aust-panel button {font:inherit;cursor:pointer;color:#205450;background:#fff;border:1px solid #93b0ae;border-radius:5px;padding:7px 14px}
+.aust-panel button[type=submit] {background:#205e58;color:white;border-color:#205e58;margin-top:16px}
+.aust-panel button:disabled,.aust-panel input:disabled,.aust-panel select:disabled {opacity:.55}
+.aust-panel .state {font-weight:650;color:#205e58}
+.aust-panel .muted {color:#506568;margin:5px 0 0}
+.aust-panel pre {white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;max-height:230px;background:#f1f5f4;margin:14px 0 0;padding:12px;border-radius:5px;font-size:13px}
+.aust-panel input[type=checkbox] {appearance:none;width:43px;height:25px;border-radius:14px;background:#667779;position:relative;cursor:pointer;vertical-align:middle}
+.aust-panel input[type=checkbox]::after {content:"";position:absolute;inset:3px auto auto 3px;width:19px;height:19px;background:white;border-radius:50%}
+.aust-panel input[type=checkbox]:checked {background:#205e58}
+.aust-panel input[type=checkbox]:checked::after {left:21px}
+@media(max-width:540px){.aust-panel .grid {grid-template-columns:1fr}}
+</style>
+<main class="aust-panel" id="aust-panel" data-collapsed>
+  <h1>AUST校园网自动认证</h1>
+  <form id="aust-form">
+    <section id="aust-summary">
+      <div class="row">
+        <div><strong>自动认证</strong><p class="muted">通过有线 WAN 接入校园网，断线后自动重新认证。</p></div>
+        <input id="aust-enabled" type="checkbox" role="switch" aria-label="自动认证" aria-controls="aust-settings aust-logs">
+      </div>
+      <p>当前状态 <span class="state" id="aust-status" aria-live="polite">正在读取</span></p>
+      <p id="aust-message" role="status" hidden></p>
+    </section>
+    <section id="aust-settings" hidden>
+      <h2>认证设置</h2>
+      <div class="grid">
+        <label><span>学号 / 工号</span><input id="aust-account" maxlength="64" autocomplete="username" spellcheck="false"></label>
+        <label><span>密码</span><input id="aust-password" type="password" maxlength="128" autocomplete="new-password"></label>
+        <label><span>登录出口</span><select id="aust-exit">
+          <option value="aust">电信</option><option value="unicom">联通</option>
+          <option value="cmcc">移动</option><option value="jzg">教职工</option>
+        </select></label>
+      </div>
+      <button type="submit">保存并应用</button>
+    </section>
+  </form>
+  <section id="aust-logs" hidden>
+    <div class="row"><strong>运行日志</strong><button id="aust-refresh" type="button">刷新</button></div>
+    <pre id="aust-log" tabindex="0">暂无日志</pre>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict';
+  const byId = (id) => document.getElementById('aust-' + id);
+  const form = byId('form'), password = byId('password'), message = byId('message');
+  const enabled = byId('enabled');
+  const controls = form.querySelectorAll('input, select, button');
+  const endpoint = location.pathname.replace(/\/$/, '') + '/data';
+  let initialized = false, saving = false, originalPassword = '';
+  let savedConfig;
+  const setBusy = (busy) => controls.forEach((control) => { control.disabled = busy; });
+  function showMessage(text) {
+    message.textContent = text;
+    message.hidden = !text;
+  }
+  function syncVisibility() {
+    const collapsed = !enabled.checked;
+    byId('panel').toggleAttribute('data-collapsed', collapsed);
+    byId('settings').hidden = collapsed;
+    byId('logs').hidden = collapsed;
+  }
+  setBusy(true);
+
+  async function request(options, loadConfig) {
+    const res = await fetch(endpoint + (loadConfig ? '?config=1' : ''), Object.assign({cache:'no-store', credentials:'same-origin',
+      headers:{'X-Austnet-Request':'1'}}, options));
+    if (res.status >= 500) throw new Error('认证接口出错（HTTP ' + res.status + '）');
+    if (res.status === 401 || res.status === 403) throw new Error('认证接口拒绝请求，请重新登录管理后台');
+    if (!res.ok) throw new Error('认证接口请求失败（HTTP ' + res.status + '）');
+    if (!(res.headers.get('Content-Type') || '').includes('application/json')) {
+      throw new Error('认证接口返回了页面，请刷新或重新登录管理后台');
+    }
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || '操作失败');
+    return data;
+  }
+  function render(data, updateForm) {
+    byId('status').textContent = data.status;
+    byId('log').textContent = data.log || '暂无日志';
+    if (!updateForm) return;
+    savedConfig = {enabled: data.enabled, account: data.account, exit: data.exit};
+    enabled.checked = data.enabled;
+    syncVisibility();
+    byId('account').value = data.account;
+    byId('exit').value = data.exit;
+    if (typeof data.password === 'string') originalPassword = data.password;
+    password.value = originalPassword;
+    initialized = true;
+    setBusy(false);
+  }
+  let sequence = 0;
+  async function refresh() {
+    if (saving) return;
+    const current = ++sequence;
+    try {
+      const data = await request(undefined, !initialized);
+      if (current === sequence) render(data, !initialized);
+    } catch (error) {
+      if (current === sequence) byId('status').textContent = error.message;
+    }
+  }
+  async function save(turnOff) {
+    if (!initialized || saving) return;
+    saving = true;
+    ++sequence;
+    const replacement = turnOff || password.value === originalPassword ? '' : password.value;
+    const body = new URLSearchParams({enabled: turnOff ? '0' : '1',
+      account: turnOff ? savedConfig.account : byId('account').value.trim(),
+      exit: turnOff ? savedConfig.exit : byId('exit').value, password: replacement});
+    setBusy(true);
+    showMessage(turnOff ? '正在关闭…' : '正在保存…');
+    try {
+      const data = await request({method:'POST', body});
+      if (replacement !== '') originalPassword = replacement;
+      render(data, true);
+      showMessage(turnOff ? '' : '已保存');
+    } catch (error) {
+      if (turnOff) {
+        enabled.checked = savedConfig.enabled;
+        syncVisibility();
+      }
+      showMessage(error.message);
+    } finally {
+      saving = false;
+      setBusy(false);
+    }
+  }
+  enabled.addEventListener('change', () => {
+    showMessage('');
+    syncVisibility();
+    if (initialized && !enabled.checked && savedConfig.enabled) save(true);
+  });
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (enabled.checked) save(false);
+  });
+  byId('refresh').addEventListener('click', refresh);
+  refresh();
+  setInterval(refresh, 5000);
+})();
+</script>
+                <!-- AUSTNET_PREVIEW_END -->
+            </div>
+        </div>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+<%include("web/inc/g.js")%>
+</body>
+</html>
